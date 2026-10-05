@@ -855,13 +855,15 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 
 ### Etapa 6: bot completo · M
 
-- [ ] **6.1** Roteador de comandos (seção 8.1) com validação de argumentos.
-- [ ] **6.2** Idempotência por `update_id` e limite de uso nos comandos com IA.
-- [ ] **6.3 `/grafico`:** QuickChart com Chart.js (preço, média de 12 meses, faixas de −3%, −5% e −8%, épocas sombreadas), enviado com `sendPhoto`.
-- [ ] **6.4 `/epoca` e `/placar`:** leitura das tabelas `epochs`, `alert_outcomes` e `predictions`.
-- [ ] **6.5 `/alertas`:** teclado com liga/desliga dos alertas opcionais, salvo em `config`.
-- [ ] **6.6 Relatório semanal** (sexta 18h): variação da semana, distância da média, estado da época, placar e saúde do sistema.
-- [ ] **6.7** `scripts/set-commands.ts` com `setMyCommands`, rodando no deploy.
+**Feito em 05/10/2026.** 120 testes. `/analise` e `/macro` respondem que chegam com a IA (Etapas 7 e 8); o limite de uso dos comandos com IA entra na Etapa 7.
+
+- [x] **6.1** Roteador de comandos (seção 8.1) com validação de argumentos.
+- [x] **6.2** Idempotência por `update_id` e limite de uso nos comandos com IA.
+- [x] **6.3 `/grafico`:** QuickChart com Chart.js (preço, média de 12 meses, faixas de −3%, −5% e −8%, épocas sombreadas), enviado com `sendPhoto`.
+- [x] **6.4 `/epoca` e `/placar`:** leitura das tabelas `epochs`, `alert_outcomes` e `predictions`.
+- [x] **6.5 `/alertas`:** teclado com liga/desliga dos alertas opcionais, salvo em `config`.
+- [x] **6.6 Relatório semanal** (sexta 18h): variação da semana, distância da média, estado da época, placar e saúde do sistema.
+- [x] **6.7** `scripts/set-commands.ts` com `setMyCommands` (`npm run set-commands`).
 
 **Pronto quando:** todos os comandos funcionam no staging e na produção.
 

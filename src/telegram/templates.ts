@@ -15,16 +15,17 @@ export interface MessageContext {
   seasonalIndex?: Record<number, { mean: number; n: number }>;
 }
 
-const LEVEL_ICON: Record<Level, string> = { boa: "🟢", muito_boa: "🟢🟢", rara: "🟢🟢🟢" };
+export const LEVEL_ICON: Record<Level, string> = { boa: "🟢", muito_boa: "🟢🟢", rara: "🟢🟢🟢" };
 
 /**
  * Junta as linhas. Todo texto aqui é gerado pelo app (números e frases fixas, nada vindo de
  * fora), então pode levar tags HTML do Telegram (<b>) sem escapar.
  */
-const esc = (lines: (string | undefined)[]) => lines.filter((l): l is string => l !== undefined).join("\n");
+export const esc = (lines: (string | undefined)[]) =>
+  lines.filter((l): l is string => l !== undefined).join("\n");
 
 /** "−5% (R$ 5,75) · −8% (R$ 5,57)": os níveis que ainda faltam, com o preço de cada um. */
-function nextLevels(signal: Signal, level: Level, levels: Record<Level, number>): string | undefined {
+export function nextLevels(signal: Signal, level: Level, levels: Record<Level, number>): string | undefined {
   const order: Level[] = ["boa", "muito_boa", "rara"];
   const next = order.slice(order.indexOf(level) + 1);
   if (next.length === 0) return undefined;
@@ -34,12 +35,12 @@ function nextLevels(signal: Signal, level: Level, levels: Record<Level, number>)
 }
 
 /** Uma seção: título em negrito e itens com marcador, antecedida de linha em branco. Vazia some. */
-function section(title: string, items: string[]): string[] {
+export function section(title: string, items: string[]): string[] {
   return items.length === 0 ? [] : ["", `<b>${title}</b>`, ...items.map((l) => `• ${l}`)];
 }
 
-const priceLine = (price: number) => `<b>R$ ${rate(price)}</b> por euro`;
-const vs12m = (dist: number) => `${aboveBelow(dist)} da média de 12 meses`;
+export const priceLine = (price: number) => `<b>R$ ${rate(price)}</b> por euro`;
+export const vs12m = (dist: number) => `${aboveBelow(dist)} da média de 12 meses`;
 
 /**
  * Texto do alerta em HTML do Telegram. Feito para ler de relance: título, preço em destaque,

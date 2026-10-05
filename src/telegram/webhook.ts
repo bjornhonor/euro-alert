@@ -3,11 +3,17 @@ import { setState } from "../db/state";
 import { safeEqual } from "../lib/crypto";
 import { errorFields, log } from "../lib/log";
 import { TelegramApi } from "./api";
+import { alertsKeyboard, handleCommand, sendChart, toggleAlertOption } from "./commands";
 
 interface Update {
   update_id: number;
   message?: { chat: { id: number }; text?: string };
-  callback_query?: { id: string; from: { id: number }; data?: string; message?: { chat: { id: number } } };
+  callback_query?: {
+    id: string;
+    from: { id: number };
+    data?: string;
+    message?: { chat: { id: number }; message_id?: number };
+  };
 }
 
 export const SECRET_HEADER = "X-Telegram-Bot-Api-Secret-Token";
@@ -18,7 +24,7 @@ function chatIdOf(update: Update): number | undefined {
 
 /**
  * POST /telegram/webhook. Recusa sem o segredo; ignora updates repetidos (o Telegram reenvia
- * se não receber 200) e qualquer chat que não seja o seu. Os comandos completos chegam na Etapa 6.
+ * se não receber 200) e qualquer chat que não seja o seu.
  */
 export async function handleWebhook(request: Request, env: Env, deps: Deps): Promise<Response> {
   const secret = request.headers.get(SECRET_HEADER) ?? "";
@@ -56,32 +62,36 @@ export async function handleWebhook(request: Request, env: Env, deps: Deps): Pro
 
 async function reply(update: Update, env: Env, deps: Deps): Promise<void> {
   const api = new TelegramApi(env.TELEGRAM_BOT_TOKEN, deps.fetch);
-  if (update.callback_query) {
-    const data = update.callback_query.data ?? "";
-    let text: string;
-    if (data === "mute:24h") {
-      const now = deps.clock.now();
-      await setState(env.DB, "mute_until", now + 24 * 60 * 60 * 1000, now);
-      text = "🔕 Alertas silenciados por 24h. O que acontecer vai para o resumo das 8h.";
-    } else if (data.startsWith("ai:")) {
-      text = "🤖 A análise com IA chega numa próxima etapa.";
-    } else if (data.startsWith("chart:")) {
-      text = "📈 O gráfico chega numa próxima etapa.";
-    } else {
-      text = "Botão desconhecido.";
+  const cb = update.callback_query;
+  if (!cb) return handleCommand(update.message?.text ?? "", env, deps);
+
+  const data = cb.data ?? "";
+  const answer = (text: string) =>
+    api.call("answerCallbackQuery", { callback_query_id: cb.id, text, show_alert: false });
+
+  if (data === "mute:24h") {
+    const now = deps.clock.now();
+    await setState(env.DB, "mute_until", now + 24 * 60 * 60 * 1000, now);
+    await answer("🔕 Alertas silenciados por 24h. O que acontecer vai para o resumo das 8h.");
+  } else if (data.startsWith("chart:")) {
+    await answer("📈 Gerando o gráfico…");
+    await sendChart(env, deps, "1a");
+  } else if (data.startsWith("cfg:")) {
+    const key = data.slice(4);
+    if (key !== "surge" && key !== "seasonal" && key !== "dryRun")
+      return void (await answer("Opção desconhecida."));
+    const cfg = await toggleAlertOption(env.DB, key);
+    await answer(cfg[key] ? "Ligado ✅" : "Desligado");
+    if (cb.message?.message_id) {
+      await api.call("editMessageReplyMarkup", {
+        chat_id: env.TELEGRAM_CHAT_ID,
+        message_id: cb.message.message_id,
+        reply_markup: alertsKeyboard(cfg),
+      });
     }
-    await api.call("answerCallbackQuery", {
-      callback_query_id: update.callback_query.id,
-      text,
-      show_alert: false,
-    });
-    return;
+  } else if (data.startsWith("ai:")) {
+    await answer("🤖 A análise com IA chega na próxima etapa.");
+  } else {
+    await answer("Botão desconhecido.");
   }
-  const text = update.message?.text?.trim() ?? "";
-  const command = text.split(/[\s@]/)[0]?.toLowerCase();
-  const html =
-    command === "/start"
-      ? "Olá! Sou o <b>Euro Alert</b>. Vou avisar aqui quando o euro entrar numa boa época de compra."
-      : "Ainda estou em construção: os comandos chegam em breve.";
-  await api.sendMessage(env.TELEGRAM_CHAT_ID, html);
 }

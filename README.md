@@ -32,6 +32,8 @@ curl "localhost:8787/cdn-cgi/local/scheduled?cron=0+6+*+*+*"
 | `npm run backfill -- --local` (ou `--remote`)       | carrega o histórico: câmbio desde 2002, Selic, IPCA e inflação do euro                 |
 | `npm run job -- tick` (ou `maintenance`, `--local`) | roda um job do Worker na hora, sem esperar o cron (precisa do `ADMIN_TOKEN`)           |
 | `npm run epochs -- --remote`                        | reconstrói as épocas históricas e o placar (rodar uma vez, antes de ligar os alertas)  |
+| `npm run job -- resend`                             | reenvia o último alerta com o modelo de mensagem atual (para conferir o texto)         |
+| `npm run set-commands`                              | registra o menu de comandos do bot no Telegram                                         |
 | `npm run cf-typegen`                                | regera `worker-configuration.d.ts` depois de mudar o `wrangler.jsonc` ou o `.dev.vars` |
 
 ## Colocar no ar (primeira vez)

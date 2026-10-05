@@ -6,6 +6,7 @@ import { kByMonth, type RealContext } from "../engine/real-rate";
 import { seasonalIndex, type SeasonalIndex } from "../engine/seasonality";
 import { computeSignal, type Signal } from "../engine/signal";
 import { brt, floorTo15Min } from "../lib/time";
+import { lastRates } from "../db/rates";
 import { type Pair, type Quote } from "../providers/types";
 
 /** Fechamentos lidos por coleta: 5 anos + folga para a inclinação e o RSI. */
@@ -29,6 +30,17 @@ export async function computeAndStoreSignal(
   if (!signal || !signal.real) return signal;
   await storeSignal(env, now, signal);
   return signal;
+}
+
+/** Sinal com a última cotação salva de cada par (para comandos e reenvios), sem gravar. */
+export async function latestSignal(env: Env, now: number): Promise<{ signal?: Signal; quotes: Quote[] }> {
+  const quotes: Quote[] = Object.values(await lastRates(env.DB)).map((r) => ({
+    pair: r.pair,
+    mid: r.mid,
+    ts: r.ts,
+    source: r.source as Quote["source"],
+  }));
+  return { signal: await buildSignal(env, now, quotes), quotes };
 }
 
 /** Calcula os indicadores com o preço ao vivo, sem gravar. */

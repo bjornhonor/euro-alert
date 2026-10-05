@@ -1,9 +1,7 @@
 import { getState, setState } from "../db/state";
 import { type Deps } from "../deps";
 import { type Signal } from "../engine/signal";
-import { lastRates } from "../db/rates";
-import { buildSignal } from "../jobs/signals";
-import { type Quote } from "../providers/types";
+import { latestSignal } from "../jobs/signals";
 import { log } from "../lib/log";
 import { brt, brtDayBounds, isAlertWindow } from "../lib/time";
 import { type FeeModel } from "../providers/wise-fees";
@@ -147,13 +145,7 @@ export async function resendLastAlert(
   if (!row) return undefined;
   const ev = (JSON.parse(row.context) as { event: RuleEvent }).event;
   const now = deps.clock.now();
-  const quotes: Quote[] = Object.values(await lastRates(env.DB)).map((r) => ({
-    pair: r.pair,
-    mid: r.mid,
-    ts: r.ts,
-    source: r.source as Quote["source"],
-  }));
-  const signal = await buildSignal(env, now, quotes);
+  const { signal } = await latestSignal(env, now);
   if (!signal) throw new Error("sem sinal para montar a mensagem");
   const cfg = await loadAlertConfig(env.DB);
   const state = (await getState<EpochState>(env.DB, "epoch_state")) ?? INITIAL_STATE;

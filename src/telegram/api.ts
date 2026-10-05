@@ -39,6 +39,15 @@ export class TelegramApi {
     return data.result as T;
   }
 
+  sendPhoto(chatId: string, photoUrl: string, captionHtml: string): Promise<TelegramMessage> {
+    return this.call<TelegramMessage>("sendPhoto", {
+      chat_id: chatId,
+      photo: photoUrl,
+      caption: captionHtml,
+      parse_mode: "HTML",
+    });
+  }
+
   sendMessage(chatId: string, html: string, opts: SendMessageOptions = {}): Promise<TelegramMessage> {
     return this.call<TelegramMessage>("sendMessage", {
       chat_id: chatId,
