@@ -2,6 +2,7 @@ import { type Deps } from "../deps";
 import { log } from "../lib/log";
 import { type JobName, jobForCron } from "./crons";
 import { maintenance } from "./maintenance";
+import { summary } from "./summary";
 import { tick } from "./tick";
 
 type Job = (env: Env, deps: Deps) => Promise<void>;
@@ -14,7 +15,7 @@ const notYet =
 
 const JOBS: Record<JobName, Job> = {
   tick,
-  summary: notYet("resumo das 8h"), // Etapa 4 (resumo) e Etapa 8 (IA macro)
+  summary, // a IA macro entra na Etapa 8
   weekly: notYet("relatório semanal"), // Etapa 6
   maintenance,
 };

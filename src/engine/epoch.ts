@@ -12,6 +12,9 @@ export const EXIT_LEVEL = -0.01;
 
 export type Level = keyof typeof LEVELS;
 
+/** Ordem dos níveis: quanto maior, mais barato em relação à média de 12 meses. */
+export const LEVEL_RANK: Record<Level, number> = { boa: 1, muito_boa: 2, rara: 3 };
+
 export function levelFor(dist250: number): Level | null {
   if (!(dist250 <= LEVELS.boa)) return null;
   if (dist250 <= LEVELS.rara) return "rara";

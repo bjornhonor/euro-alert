@@ -791,20 +791,22 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 
 **Objetivo:** alertas reais de boa época, com contexto e placar.
 
-- [ ] **4.1** `alerts/rules.ts`: função pura `avaliar(estado, sinais, agora, config) → Alerta[]`, com:
+**Feito em 05/10/2026.** Primeiro alerta real entregue às 12h: "Boa época ficou melhor · muito boa" (EUR/BRL 5,5838, −7,5% da média de 12 meses). 103 testes. Pendentes, por dependerem de outras etapas: alerta de **evento** (precisa do calendário da Etapa 8; por enquanto os eventos de `config/events.json` aparecem só como linha de contexto) e **dia excepcional** no resumo (o resumo mostra o score de curto prazo).
+
+- [x] **4.1** `alerts/rules.ts`: função pura `evaluate(estado, leitura, config) → { estado, eventos }`, com:
   - início da época (−3%), novo nível (−5%, −8%) e fim (volta a −1%);
-  - dia excepcional, disparada, evento e sazonal (conforme a config de alertas).
-- [ ] **4.2** `alerts/state.ts`:
+  - disparada e sazonal (evento e dia excepcional ficam para depois, ver acima).
+- [x] **4.2** `alerts/run.ts`:
   - confirmação em 2 leituras seguidas;
   - episódios na tabela `epochs`;
   - um alerta por nível por episódio;
-  - horário de silêncio (22h–7h), com a fila indo para o resumo;
+  - fora do horário (22h–8h), com o alerta indo para o resumo das 8h;
   - limite de 3 por dia e silêncio de 24h.
-- [ ] **4.3** `alerts/context.ts`: bloco de contexto (tendência, médias, decomposição, sazonalidade, eventos dos próximos 14 dias, custo na Wise para o valor de referência).
-- [ ] **4.4** `telegram/templates.ts`: modelos do Apêndice C.
-- [ ] **4.5 Botões:** 🤖 Análise · 📈 Gráfico · 🔕 24h. Webhook mínimo pra tratar `callback_query`, já com header secreto e checagem de `chat_id`.
-- [ ] **4.6** `alerts/scorecard.ts` + manutenção: preenche `alert_outcomes` (médias de 1, 3 e 6 meses e mínimo de 3 meses). No backfill, gera as épocas históricas (`source = 'backfill'`) para o placar começar com dados.
-- [ ] **4.7 Modo silencioso** (`config.dry_run`): durante uma semana, só registra os alertas sem enviar, pra conferir frequência e texto.
+- [x] **4.3** `alerts/context.ts`: bloco de contexto (tendência, médias, decomposição, sazonalidade, eventos dos próximos 14 dias, custo na Wise para o valor de referência).
+- [x] **4.4** `telegram/templates.ts`: modelos do Apêndice C.
+- [x] **4.5 Botões:** 🤖 Análise · 📈 Gráfico · 🔕 24h. Webhook mínimo pra tratar `callback_query`, já com header secreto e checagem de `chat_id`.
+- [x] **4.6** `alerts/scorecard.ts` + manutenção: preenche `alert_outcomes` (médias de 1, 3 e 6 meses e mínimo de 3 meses). `npm run epochs -- --remote` gera as épocas históricas (`source = 'backfill'`) para o placar começar com dados e inicia o estado na época aberta (reproduz a pesquisa: 31 épocas, 15 chegaram a −5% e 7 a −8%).
+- [x] **4.7 Modo silencioso** (`dryRun` na chave `alerts` da tabela `config`): só registra os alertas sem enviar. Disponível, mas os alertas já foram ligados direto.
 
 **Testes:**
 - tabela de casos do `avaliar()`:

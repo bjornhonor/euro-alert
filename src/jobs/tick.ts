@@ -10,6 +10,7 @@ import { wiseOfficialProvider } from "../providers/wise-official";
 import { wisePublicProvider } from "../providers/wise-public";
 import { escapeHtml } from "../telegram/api";
 import { sendSystemAlert } from "../telegram/notify";
+import { processAlerts } from "../alerts/run";
 import { computeAndStoreSignal } from "./signals";
 
 export const PAIRS: readonly Pair[] = ["EURBRL", "USDBRL", "EURUSD"];
@@ -38,7 +39,7 @@ const hhmm = (ms: number) => {
   return `${String(p.hour).padStart(2, "0")}h${String(p.minute).padStart(2, "0")}`;
 };
 
-/** A cada 15 min: coleta as cotações, calcula os indicadores e vigia a coleta. Alertas entram na Etapa 4. */
+/** A cada 15 min: coleta as cotações, calcula os indicadores, roda as regras de alerta e vigia a coleta. */
 export async function tick(env: Env, deps: Deps): Promise<void> {
   const now = deps.clock.now();
   const last = await lastRates(env.DB);
@@ -64,9 +65,10 @@ export async function tick(env: Env, deps: Deps): Promise<void> {
           realDist: signal.real.dist,
           score: signal.score.score,
         });
+        await processAlerts(env, deps, now, signal);
       } else log("warn", "sinal: histórico insuficiente (backfill ou cálculo da história pendente)");
     } catch (err) {
-      log("error", "sinal: falhou", errorFields(err)); // não impede o vigia nem a coleta
+      log("error", "sinal/alertas: falhou", errorFields(err)); // não impede o vigia nem a coleta
     }
     if (incident) {
       await sendSystemAlert(

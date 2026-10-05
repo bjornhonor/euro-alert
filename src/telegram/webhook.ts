@@ -1,4 +1,5 @@
 import { type Deps } from "../deps";
+import { setState } from "../db/state";
 import { safeEqual } from "../lib/crypto";
 import { errorFields, log } from "../lib/log";
 import { TelegramApi } from "./api";
@@ -56,7 +57,24 @@ export async function handleWebhook(request: Request, env: Env, deps: Deps): Pro
 async function reply(update: Update, env: Env, deps: Deps): Promise<void> {
   const api = new TelegramApi(env.TELEGRAM_BOT_TOKEN, deps.fetch);
   if (update.callback_query) {
-    await api.call("answerCallbackQuery", { callback_query_id: update.callback_query.id });
+    const data = update.callback_query.data ?? "";
+    let text: string;
+    if (data === "mute:24h") {
+      const now = deps.clock.now();
+      await setState(env.DB, "mute_until", now + 24 * 60 * 60 * 1000, now);
+      text = "🔕 Alertas silenciados por 24h. O que acontecer vai para o resumo das 8h.";
+    } else if (data.startsWith("ai:")) {
+      text = "🤖 A análise com IA chega numa próxima etapa.";
+    } else if (data.startsWith("chart:")) {
+      text = "📈 O gráfico chega numa próxima etapa.";
+    } else {
+      text = "Botão desconhecido.";
+    }
+    await api.call("answerCallbackQuery", {
+      callback_query_id: update.callback_query.id,
+      text,
+      show_alert: false,
+    });
     return;
   }
   const text = update.message?.text?.trim() ?? "";
