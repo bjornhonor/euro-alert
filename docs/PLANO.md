@@ -47,12 +47,13 @@ O app acompanha o EUR/BRL o tempo todo (com base na Wise), identifica **boas ép
 ## 2. Princípios
 
 1. **A regra fixa dispara o alerta, a IA dá contexto.** A IA nunca dispara nem bloqueia um alerta de preço.
-2. **Honestidade sobre o sinal.** O sinal "barato em relação ao último ano" funcionou muito bem em alguns períodos e mal em outros (seção 3.3). Cada alerta mostra o contexto, e o app mede os próprios acertos (placar, seção 3.6).
-3. **O motor é feito de funções puras.** O mesmo código roda em produção, nos testes e no backtest.
-4. **Falhar alto.** Se algo parar, você fica sabendo (sinal de vida diário e vigia de dados).
-5. **Nenhuma mudança de regra entra sem backtest.**
-6. **Tudo cabe no plano grátis, com folga** (seção 12).
-7. **Nenhum dado pessoal vai para as IAs**, só dados de mercado.
+2. **O gatilho olha só o preço do euro.** Toda régua de alerta é calculada sobre a série do EUR/BRL (média de 12 meses, 5 anos, câmbio real, tendência). Selic, juro do BCE, Focus e notícias são contexto para a IA e para o resumo, nunca gatilho (decidido em 05/10/2026).
+3. **Honestidade sobre o sinal.** O sinal "barato em relação ao último ano" funcionou muito bem em alguns períodos e mal em outros (seção 3.3). Cada alerta mostra o contexto, e o app mede os próprios acertos (placar, seção 3.6).
+4. **O motor é feito de funções puras.** O mesmo código roda em produção, nos testes e no backtest.
+5. **Falhar alto.** Se algo parar, você fica sabendo (sinal de vida diário e vigia de dados).
+6. **Nenhuma mudança de regra entra sem backtest.**
+7. **Tudo cabe no plano grátis, com folga** (seção 12).
+8. **Nenhum dado pessoal vai para as IAs**, só dados de mercado.
 
 ---
 
@@ -260,7 +261,7 @@ euro-alert/
 │  │  ├─ wise-public.ts         # history+live
 │  │  ├─ awesomeapi.ts          # EURBRL, USDBRL, EURUSD numa chamada
 │  │  ├─ wise-fees.ts           # comparisons → custo real
-│  │  ├─ bcb.ts                 # SGS (Selic, CDI) e Focus
+│  │  ├─ bcb.ts                 # SGS (Selic, IPCA) e Focus
 │  │  ├─ ecb.ts                 # taxa de depósito do BCE
 │  │  ├─ calendar.ts            # ForexFactory + eventos do Brasil
 │  │  └─ news.ts                # Google News RSS
@@ -384,7 +385,7 @@ CREATE TABLE fee_quotes (
   PRIMARY KEY (ts, amount_brl)
 );
 
--- Selic, CDI, juro do BCE, Focus…
+-- Selic, IPCA, juro do BCE, inflação do euro, Focus… (contexto; o gatilho usa só o EUR/BRL)
 CREATE TABLE macro_series (
   series  TEXT NOT NULL,
   date    TEXT NOT NULL,
@@ -624,7 +625,7 @@ Timeout de 20 s (60 s na macro), 1 nova tentativa em 429 ou 5xx, e disjuntor: de
 - **2ª passada:** converte o texto no JSON do schema.
 - **Pacote de dados:**
   - decomposição do EUR/BRL em EUR/USD × USD/BRL;
-  - Selic, CDI, juro do BCE e a diferença entre eles;
+  - Selic, juro do BCE e a diferença entre eles (só contexto, princípio 2);
   - Focus;
   - estado da boa época;
   - eventos da semana;
@@ -660,7 +661,7 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 | 7. IA do alerta | leitura "desconto ou tendência" em cada alerta e `/analise` | 4 | M |
 | 8. IA macro | resumo diário com fontes, alertas de evento, placar da IA | 7 | G |
 | 9. Operação | vigia externo, backup, runbook, ensaio de falhas | 6 | P |
-| 10. Sinais v2 | câmbio real, juros e momentum como réguas extras | 5 | G |
+| 10. Sinais v2 | câmbio real e momentum como réguas extras | 5 | G |
 
 **Marcos:** M1 = etapas 0–2 (dados fluindo) · M2 = 3–4 (primeira versão útil) · M3 = 5–6 (sinal validado e bot completo) · M4 = 7–8 (IA) · M5 = 9–10 (robustez e sinais v2).
 
@@ -728,7 +729,7 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 - [x] **2.3 Cadeia com validação:** aceita a primeira cotação válida. Rejeita variação > 3% contra a última salva, a menos que outra fonte confirme. Registra a fonte usada.
 - [x] **2.4** `jobs/tick.ts` (parte 1): coleta EURBRL, USDBRL e EURUSD e grava em `rates`.
 - [x] **2.5** `scripts/backfill.ts`:
-  - baixa o BCE (Frankfurter, 2002 a 22/09/2021), a Wise diária (5 anos) e Selic/CDI (SGS, em janelas de 10 anos);
+  - baixa o BCE (Frankfurter, 2002 a 22/09/2021), a Wise diária (5 anos) Selic (SGS, em janelas de 10 anos), IPCA e inflação do euro;
   - gera SQL e aplica com `wrangler d1 execute euro-alert --remote --file=backfill.sql`.
 
   São ~9 mil linhas.
@@ -833,7 +834,7 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 | H2 | Um filtro de tendência separa desconto temporário de tendência | os filtros testados não ajudaram na base longa (seção 3.3); testar outros |
 | H3 | Momentum de 6–12 meses indica quando o euro barato tende a seguir caindo | a testar; aviso de "pode continuar caindo" no alerta |
 | H4 | Câmbio real ou média de 5 anos como parte do gatilho | Primeiro teste: não separou bem os casos (seção 3.2). Ficam como contexto; reavaliar na Etapa 10 |
-| H5 | O diferencial de juros (Selic − BCE) muda a leitura | Etapa 10 |
+| H5 | O diferencial de juros (Selic − BCE) muda a leitura | fora do gatilho por decisão (princípio 2): juros só como contexto da IA macro |
 | H6 | A leitura da IA ("desconto" ou "tendência") acerta mais que 50% | placar da IA (mínimo de 3 meses) |
 | H7 | Existe horário do dia melhor | respondida: diferença ≤ 0,02%, irrelevante |
 | H8 | Existe mês do ano melhor | respondida: dezembro caro, junho e julho baratos; virou o alerta sazonal |
@@ -875,7 +876,7 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 
 - [ ] **8.1** `macro/data-pack.ts`:
   - decomposição do EUR/BRL em 1, 5 e 20 dias;
-  - Selic, CDI, juro do BCE, diferença entre eles e Focus;
+  - Selic, juro do BCE, diferença entre eles e Focus (só contexto);
   - estado da época;
   - eventos da semana;
   - 10–20 manchetes.
@@ -907,7 +908,7 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 Usa o histórico público; pode começar logo depois da Etapa 5.
 
 - [ ] **10.1 Câmbio real e 5 anos como gatilho (H4):** o contexto já existe desde a Etapa 3. Aqui, testar com walk-forward se combiná-los com a média de 12 meses melhora o sinal em mais de um regime.
-- [ ] **10.2 Juros (H5):** diferencial Selic − BCE e sua direção (cortes de juros no Brasil tendem a enfraquecer o real).
+- ~~**10.2 Juros (H5)**~~: descartado em 05/10/2026. O gatilho usa só o preço do euro; Selic e BCE aparecem apenas no texto da IA macro.
 - [ ] **10.3 Momentum (H3):** retorno de 6 e 12 meses como aviso de tendência.
 - [ ] **10.4 Termômetro:** combinar as réguas num indicador de 0 a 100 exibido no `/agora` e nos alertas, sem mudar o gatilho até passar pela regra 5.6.
 - [ ] **10.5** Avaliar o viés macro (H6) com o placar.
