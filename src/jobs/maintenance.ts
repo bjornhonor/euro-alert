@@ -18,6 +18,7 @@ import {
 } from "../providers/wise-fees";
 import { TelegramApi } from "../telegram/api";
 import { sendSystemAlert } from "../telegram/notify";
+import { refreshHistory } from "./signals";
 
 const DAY_MS = 86_400_000;
 const RATES_RETENTION_MS = 90 * DAY_MS;
@@ -48,6 +49,7 @@ export async function maintenance(env: Env, deps: Deps): Promise<void> {
       "inflacao_euro",
       () => cached(env, now, "fetched_hicp", HICP_CACHE_MS, () => updateHicp(env, deps, now)),
     ],
+    ["historia", () => refreshHistory(env, now)], // depois do IPCA e da inflação do euro
     ["ola", () => hello(env, deps, now)],
   ];
   const failed: string[] = [];

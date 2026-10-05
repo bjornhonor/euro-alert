@@ -198,7 +198,8 @@ describe("manutenção das 3h", () => {
     expect(by.ecb_dfr!.n).toBeGreaterThan(0);
     expect(by.hicp_ea!.n).toBeGreaterThan(2);
     expect(Object.keys(by).some((k) => k.startsWith("focus_cambio:"))).toBe(true);
-    expect(await getState(env.DB, "last_maintenance")).toMatchObject({ failed: [] });
+    // a "historia" precisa de 13+ meses de IPCA e inflação do euro (vem do backfill; testada em signals.test.ts)
+    expect(await getState(env.DB, "last_maintenance")).toMatchObject({ failed: ["historia"] });
   });
 
   it("uma fonte fora do ar não derruba as outras tarefas", async () => {

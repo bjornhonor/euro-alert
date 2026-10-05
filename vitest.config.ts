@@ -21,6 +21,8 @@ export default defineConfig(async () => {
     ],
     test: {
       setupFiles: ["./test/apply-migrations.ts"],
+      // Cada arquivo sobe um workerd; muitos ao mesmo tempo estouram o tempo de início no Windows.
+      maxWorkers: 2,
     },
   };
 });

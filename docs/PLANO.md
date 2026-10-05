@@ -109,7 +109,7 @@ O gatilho é a média de 12 meses, mas o alerta sempre mostra os três horizonte
 |---|---|---|
 | 12 meses | distância da média, e mais barato que X% dos dias do período | média 6,0543 (−3,3%) · mais barato que 82% dos dias |
 | 5 anos | distância da média, e mais barato que X% dos dias do período | média 5,8042 (+0,9%) · mais barato que 48% dos dias |
-| História desde 2002 | câmbio corrigido pela inflação do Brasil (IPCA) e da zona do euro, em reais de hoje | média 5,4943 (+6,6%) · mais barato que 32% dos dias |
+| História desde 2002 | câmbio corrigido pela inflação do Brasil (IPCA) e da zona do euro, em reais de hoje | média 5,4013 (+8,4%) · mais barato que 30% dos dias |
 
 **Por que corrigir pela inflação:** sem correção, o preço de hoje pareceria mais caro que 84% dos dias desde 2002, só porque o real perdeu valor com a inflação acumulada. Em reais de hoje, o euro mais barato da história foi 3,67 (fev/2012) e o mais caro, 9,43 (set/2002).
 
@@ -179,20 +179,25 @@ Média ponderada de componentes normalizados entre 0 e 1, virando um número de 
 
 | Componente | Cálculo | Peso |
 |---|---|---:|
-| Percentil | 1 − percentil do preço nos últimos 90 dias úteis | 40% |
-| Distância da média curta | z-score contra a média de 20 dias: `clip(−z/2,5; 0; 1)` | 28% |
-| RSI | RSI(14) de Wilder: `clip((50 − RSI)/20; 0; 1)` | 16% |
-| Queda recente | retorno de 5 dias sobre 1,5 desvio da volatilidade de 60 dias: `clip(−r5/(1,5·σ·√5); 0; 1)` | 16% |
+| Percentil | 1 − percentil do preço nos últimos 90 dias úteis | 35% |
+| Distância da média curta | z-score contra a média de 20 dias: `clip(−z/2,5; 0; 1)` | 25% |
+| RSI | RSI(14) de Wilder: `clip((50 − RSI)/20; 0; 1)` | 15% |
+| Queda recente | retorno de 5 dias sobre 1,5 desvio da volatilidade de 60 dias: `clip(−r5/(1,5·σ·√5); 0; 1)` | 15% |
+
+Os pesos somam 90% e o total é dividido por 0,90, igual à pesquisa (`indicators()` em `research/analise_preliminar.py`).
 
 ### 3.8 Como está hoje
 
-Em 23/09/2026:
-- **Preço:** EUR/BRL do BCE em 5,8564 (Wise: 5,8860).
-- **12 meses:** −3,3% da média (6,05). A boa época começou em 22/09.
-- **5 anos:** +0,9% da média (5,80).
-- **História:** +6,6% da média corrigida pela inflação (5,49).
-- **Tendência:** a média de 12 meses está caindo (−1,9% em 3 meses) e o preço está abaixo das médias de 20 e 50 dias. É o cenário de "tendência de queda", em que o histórico mostra o euro às vezes seguindo em queda depois do sinal.
-- **Eventos:** eleição em 4/10, e a Selic foi cortada para 13,75% em 17/09.
+Em 05/10/2026, 11h30 (primeiro sinal calculado em produção, Wise pública), um dia depois do 1º turno da eleição:
+- **Preço:** EUR/BRL 5,5776 (caiu ~4,7% em relação a sexta).
+- **12 meses:** −7,6% da média (6,04), mais barato que 99,6% dos dias do último ano. Nível **muito boa**, perto de **rara** (−8%).
+- **5 anos:** −3,7% da média (5,79), mais barato que 58% dos dias.
+- **História:** +3,2% da média corrigida pela inflação (5,41), mais barato que 38% dos dias desde 2002.
+- **Tendência:** média de 12 meses caindo (−1,7% em 3 meses); preço abaixo das médias de 20 e 50 dias.
+- **Projeção pela volatilidade:** 68% de chance de ficar entre 5,47 e 5,69 em 1 semana, e entre 5,37 e 5,80 em 1 mês.
+- **Sazonalidade:** outubro costuma ficar 0,8% acima da tendência (24 anos).
+
+Em 23/09/2026 (BCE 5,8564): 12 meses −3,3% (boa época desde 22/09), 5 anos +0,9%, história +8,4%. A história foi recalculada com a série nova de inflação do euro da Eurostat (antes dava +6,6%).
 
 ---
 
@@ -753,28 +758,30 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 
 **Objetivo:** indicadores confiáveis e idênticos aos da referência em Python.
 
-- [ ] **3.1** `engine/series.ts`: série diária (~400 dias de `daily_close`) com o preço ao vivo como último ponto provisório.
-- [ ] **3.2** `engine/indicators.ts`, funções puras sobre `number[]`:
+**Feito em 05/10/2026.** 20 testes golden batem com o Python em 1e-9 (score, distâncias, percentis, tendência, câmbio real e sazonalidade) sobre a série real do BCE desde 2002.
+
+- [x] **3.1** `jobs/signals.ts`: série diária (5 anos + folga de `daily_close`) com o preço ao vivo como último ponto provisório.
+- [x] **3.2** `engine/indicators.ts`, funções puras sobre `number[]`:
   - médias móveis, desvio padrão, z-score e percentil móvel;
   - RSI de Wilder e volatilidade realizada.
-- [ ] **3.3** `engine/epoch.ts`:
+- [x] **3.3** `engine/epoch.ts`:
   - distância da média de 250 dias úteis;
   - inclinação da média em 63 dias úteis;
   - posição do preço em relação às médias de 20 e 50 dias;
   - nível (boa, muito boa, rara);
   - distância da média de 1.260 dias úteis (5 anos);
   - percentil do preço em 12 meses e em 5 anos.
-- [ ] **3.3b** `engine/real-rate.ts`:
+- [x] **3.3b** `engine/real-rate.ts`:
   - índice do IPCA e da inflação da zona do euro;
   - câmbio de cada dia em reais de hoje;
   - distância da média desde 2002 e percentil na história.
-- [ ] **3.4** `engine/score.ts`: score de curto prazo (seção 3.7), com percentis recalculados toda semana.
-- [ ] **3.5** `engine/decomposition.ts`: variação do EUR/BRL = variação do EUR/USD + variação do USD/BRL (em log), para 1, 5 e 20 dias.
-- [ ] **3.6** `engine/projection.ts`: faixas de 68% e 95% em 1 semana e em 1 mês, pela volatilidade de 60 dias.
-- [ ] **3.7** `engine/seasonality.ts`: índice sazonal por mês (tendência de 12 meses centrada), recalculado uma vez por mês.
-- [ ] **3.8** `tick.ts` (parte 2): calcula tudo e grava em `signals`.
-- [ ] **3.9 Testes "golden":** comparar com a referência em Python (`research/`), com tolerância de 1e-9.
-- [ ] **3.10 Teste anti-vazamento:** acrescentar dados futuros não pode mudar indicadores de datas passadas.
+- [x] **3.4** `engine/score.ts`: score de curto prazo (seção 3.7).
+- [x] **3.5** `engine/market.ts`: variação do EUR/BRL = variação do EUR/USD + variação do USD/BRL (em log), para 1, 5 e 20 dias.
+- [x] **3.6** `engine/market.ts`: faixas de 68% e 95% em 1 semana e em 1 mês, pela volatilidade de 60 dias.
+- [x] **3.7** `engine/seasonality.ts`: índice sazonal por mês (tendência de 12 meses centrada), recalculado na manutenção diária.
+- [x] **3.8** `tick.ts` (parte 2): calcula tudo e grava em `signals`.
+- [x] **3.9 Testes "golden":** comparar com a referência em Python (`research/`), com tolerância de 1e-9.
+- [x] **3.10 Teste anti-vazamento:** acrescentar dados futuros não pode mudar indicadores de datas passadas.
 
 **Pronto quando:** os testes golden passam e `signals` está sendo preenchido.
 
@@ -1130,7 +1137,7 @@ Os números abaixo são exemplos.
 🟢 Boa época · EUR/BRL 5,8564
 12 meses: 3,3% abaixo da média (6,0543) · mais barato que 82% dos dias
 5 anos: 0,9% acima da média (5,8042) · mais barato que 48% dos dias
-História (desde 2002, corrigida pela inflação): 6,6% acima da média (5,4943)
+História (desde 2002, corrigida pela inflação): 8,4% acima da média (5,4013)
 Nível: boa · próximos: −5% (5,75) e −8% (5,57)
 
 Contexto

@@ -1,7 +1,7 @@
 import { insertRates, lastRates } from "../db/rates";
 import { getState, setState } from "../db/state";
 import { type Deps } from "../deps";
-import { log } from "../lib/log";
+import { errorFields, log } from "../lib/log";
 import { brt, floorTo15Min, isFxMarketOpen } from "../lib/time";
 import { awesomeProvider } from "../providers/awesomeapi";
 import { collectQuotes } from "../providers/chain";
@@ -10,6 +10,7 @@ import { wiseOfficialProvider } from "../providers/wise-official";
 import { wisePublicProvider } from "../providers/wise-public";
 import { escapeHtml } from "../telegram/api";
 import { sendSystemAlert } from "../telegram/notify";
+import { computeAndStoreSignal } from "./signals";
 
 export const PAIRS: readonly Pair[] = ["EURBRL", "USDBRL", "EURUSD"];
 /** Sem EUR/BRL novo há esse tempo, com o mercado aberto, vira alerta de sistema. */
@@ -37,7 +38,7 @@ const hhmm = (ms: number) => {
   return `${String(p.hour).padStart(2, "0")}h${String(p.minute).padStart(2, "0")}`;
 };
 
-/** A cada 15 min: coleta as cotações e vigia a coleta. Indicadores e alertas entram nas Etapas 3 e 4. */
+/** A cada 15 min: coleta as cotações, calcula os indicadores e vigia a coleta. Alertas entram na Etapa 4. */
 export async function tick(env: Env, deps: Deps): Promise<void> {
   const now = deps.clock.now();
   const last = await lastRates(env.DB);
@@ -53,6 +54,20 @@ export async function tick(env: Env, deps: Deps): Promise<void> {
 
   if (eur) {
     log("info", "cotação", { mid: eur.mid, source: eur.source });
+    try {
+      const signal = await computeAndStoreSignal(env, now, quotes);
+      if (signal?.real) {
+        log("info", "sinal", {
+          dist250: signal.epoch.dist250,
+          level: signal.epoch.level,
+          dist1260: signal.epoch.dist1260,
+          realDist: signal.real.dist,
+          score: signal.score.score,
+        });
+      } else log("warn", "sinal: histórico insuficiente (backfill ou cálculo da história pendente)");
+    } catch (err) {
+      log("error", "sinal: falhou", errorFields(err)); // não impede o vigia nem a coleta
+    }
     if (incident) {
       await sendSystemAlert(
         env,
