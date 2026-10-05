@@ -13,7 +13,7 @@
   // Horários em UTC. Brasília = UTC−3 o ano todo. Dias da semana por nome (MON-FRI), nunca por número.
   // Manter igual a CRONS em src/jobs/crons.ts.
   "triggers": {
-    "crons": ["*/15 * * * MON-FRI", "0 11 * * MON-FRI", "0 21 * * FRI", "0 6 * * *"],
+    "crons": ["*/15 * * * MON-FRI", "0 11 * * MON-FRI", "0 21 * * FRI", "0 6 * * *", "* * * * *"],
   },
 
   // Config que não é secreta. Os segredos ficam em .dev.vars (local) e `wrangler secret put` (produção).

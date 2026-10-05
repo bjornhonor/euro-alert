@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import golden from "../fixtures/golden.json";
 import { type Deps } from "../../src/deps";
 import { fixedClock } from "../../src/lib/time";
-import { sendNewsAnalysis } from "../../src/telegram/commands";
+import { enqueueNews, processNewsQueue } from "../../src/ai/queue";
 
 const NEWS = {
   resumo: "O euro caiu porque o resultado da eleição fortaleceu o real.",
@@ -48,10 +48,27 @@ beforeEach(async () => {
   await env.DB.batch(["predictions", "ai_calls", "state"].map((t) => env.DB.prepare(`DELETE FROM ${t}`)));
 });
 
+/** Clique (entra na fila) + cron do minuto seguinte (faz a pesquisa). */
+async function request(e: Env, deps: Deps) {
+  await enqueueNews(e, deps);
+  await processNewsQueue(e, deps);
+}
+
 describe("análise de notícias sob demanda", () => {
+  it("o clique só entra na fila; o cron do minuto pesquisa e troca a mensagem", async () => {
+    const n0 = network(() => reply(JSON.stringify(NEWS)));
+    await enqueueNews(aiEnv, n0.deps());
+    expect(n0.groqCalls).toHaveLength(0);
+    expect(n0.telegram.map((t) => t.method)).toEqual(["sendMessage"]);
+    expect(await processNewsQueue(aiEnv, n0.deps())).toBe(1);
+    expect(await processNewsQueue(aiEnv, n0.deps())).toBe(0); // não repete
+    expect(n0.telegram.map((t) => t.method)).toEqual(["sendMessage", "editMessageText"]);
+    expect(n0.telegram[1]!.body.message_id).toBe(901);
+  });
+
   it("avisa que está pesquisando, usa a busca do Groq e troca a mensagem pelo resultado", async () => {
     const n = network(() => reply(`Segue:\n${JSON.stringify(NEWS)}`));
-    await sendNewsAnalysis(aiEnv, n.deps());
+    await request(aiEnv, n.deps());
     expect(n.groqCalls[0]).toMatchObject({
       model: "openai/gpt-oss-120b",
       tools: [{ type: "browser_search" }],
@@ -65,10 +82,10 @@ describe("análise de notícias sob demanda", () => {
 
   it("reaproveita a análise por 30 minutos", async () => {
     const n = network(() => reply(JSON.stringify(NEWS)));
-    await sendNewsAnalysis(aiEnv, n.deps());
-    await sendNewsAnalysis(aiEnv, n.deps(NOW + 10 * 60_000));
+    await request(aiEnv, n.deps());
+    await request(aiEnv, n.deps(NOW + 10 * 60_000));
     expect(n.groqCalls).toHaveLength(1);
-    await sendNewsAnalysis(aiEnv, n.deps(NOW + 31 * 60_000));
+    await request(aiEnv, n.deps(NOW + 31 * 60_000));
     expect(n.groqCalls).toHaveLength(2);
   });
 
@@ -76,7 +93,7 @@ describe("análise de notícias sob demanda", () => {
     const n = network((model) =>
       model.endsWith("120b") ? new Response("limite", { status: 429 }) : reply(JSON.stringify(NEWS)),
     );
-    await sendNewsAnalysis(aiEnv, n.deps());
+    await request(aiEnv, n.deps());
     expect(n.groqCalls.map((c) => c.model)).toEqual([
       "openai/gpt-oss-120b",
       "openai/gpt-oss-120b",
@@ -86,7 +103,7 @@ describe("análise de notícias sob demanda", () => {
 
     await env.DB.prepare("DELETE FROM state").run();
     const down = network(() => reply("não sei"));
-    await sendNewsAnalysis(aiEnv, down.deps());
+    await request(aiEnv, down.deps());
     expect(String(down.telegram[1]!.body.text)).toContain("não conseguiu pesquisar");
   });
 });

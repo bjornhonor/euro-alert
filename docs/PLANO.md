@@ -570,7 +570,7 @@ Os números aceitam vírgula ou ponto como separador decimal.
 ### 9.1 Quando roda
 
 - Botão **🤖 Notícias** nos alertas e o comando `/analise` (ou `/macro`). Nada de comentário automático no alerta.
-- A busca leva de 15 a 40 s: o bot manda "Pesquisando as notícias…" e depois troca a mensagem pelo resultado.
+- A busca leva de 15 s a mais de 1 minuto (na Cloudflare já levou 82 s), e o Telegram não espera o webhook tanto tempo. Então o clique só manda "Pesquisando as notícias…" e entra numa fila; um cron de cada minuto (`* * * * *`) faz a pesquisa e troca a mensagem pelo resultado. A análise chega em 1 a 3 minutos.
 - A análise fica 30 minutos em cache (cada uma faz várias buscas e gasta ~20 mil tokens da cota grátis).
 
 ### 9.2 O que ela faz
@@ -586,8 +586,8 @@ Os números aceitam vírgula ou ponto como separador decimal.
 
 | Ordem | Modelo | Observação |
 |---|---|---|
-| 1 | Groq `openai/gpt-oss-120b` + `browser_search` | ~13 s, ~24 mil tokens por análise |
-| 2 | Groq `openai/gpt-oss-20b` + `browser_search` | reserva |
+| 1 | Groq `openai/gpt-oss-120b` + `browser_search` | 13 a 80 s, ~24 mil tokens por análise; limite grátis de 200 mil tokens por dia (~8 análises) |
+| 2 | Groq `openai/gpt-oss-20b` + `browser_search` | reserva, com cota própria; ~45 s |
 
 Nova tentativa em 429/5xx, uma tentativa extra com o erro quando o JSON vem inválido, disjuntor de 15 minutos depois de 3 falhas seguidas e registro de toda chamada em `ai_calls`.
 

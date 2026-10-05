@@ -1,8 +1,7 @@
 import { type AlertConfig, loadAlertConfig } from "../alerts/config";
 import { type EpochState } from "../alerts/rules";
 import { loadScore } from "../alerts/scorecard";
-import { renderNews } from "../ai/news-analyst";
-import { newsAnalysis } from "../ai/run";
+import { enqueueNews } from "../ai/queue";
 import { getState, setState } from "../db/state";
 import { type Deps } from "../deps";
 import { YEAR } from "../engine/epoch";
@@ -198,32 +197,11 @@ export async function handleCommand(text: string, env: Env, deps: Deps): Promise
 
     case "/analise":
     case "/macro":
-      return sendNewsAnalysis(env, deps);
+      return enqueueNews(env, deps);
 
     default:
       return void (await send("Não conheço esse comando. /ajuda mostra a lista."));
   }
-}
-
-/**
- * A análise de notícias (botão 🤖 e /analise). A busca leva de 15 a 40 s: avisa que está
- * pesquisando e depois troca a mensagem pelo resultado.
- */
-export async function sendNewsAnalysis(env: Env, deps: Deps, alertId?: number): Promise<void> {
-  const api = new TelegramApi(env.TELEGRAM_BOT_TOKEN, deps.fetch);
-  const wait = await api.sendMessage(
-    env.TELEGRAM_CHAT_ID,
-    "🔎 Pesquisando as notícias que estão mexendo com o euro… (leva até 1 minuto)",
-  );
-  const res = await newsAnalysis(env, deps, { alertId });
-  const t = res ? brt(res.ts) : undefined;
-  await api.editMessageText(
-    env.TELEGRAM_CHAT_ID,
-    wait.message_id,
-    res && t
-      ? renderNews(res.analysis, { date: t.date, hour: t.hour, minute: t.minute })
-      : "🤖 A IA não conseguiu pesquisar agora. Tente de novo em alguns minutos.",
-  );
 }
 
 async function statusText(env: Env, now: number): Promise<string> {

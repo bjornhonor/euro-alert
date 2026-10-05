@@ -8,6 +8,8 @@ export const CRONS = {
   weekly: "0 21 * * FRI",
   /** 3h de Brasília todo dia: manutenção. */
   maintenance: "0 6 * * *",
+  /** A cada minuto: atende a fila de análises pedidas no Telegram (quase sempre vazia). */
+  queue: "* * * * *",
 } as const;
 
 export type JobName = keyof typeof CRONS;

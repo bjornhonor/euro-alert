@@ -9,7 +9,7 @@
  * Usa o ADMIN_TOKEN do .dev.vars (o mesmo valor cadastrado com `wrangler secret put ADMIN_TOKEN`).
  */
 const WORKER_URL = "https://euro-alert.brunocarrarabpc.workers.dev";
-const JOBS = ["tick", "summary", "weekly", "maintenance", "resend"];
+const JOBS = ["tick", "summary", "weekly", "maintenance", "queue", "resend"];
 
 const args = process.argv.slice(2);
 const job = args.find((a) => !a.startsWith("--"));

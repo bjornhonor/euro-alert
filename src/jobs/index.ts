@@ -5,6 +5,7 @@ import { maintenance } from "./maintenance";
 import { summary } from "./summary";
 import { tick } from "./tick";
 import { weekly } from "./weekly";
+import { processNewsQueue } from "../ai/queue";
 
 type Job = (env: Env, deps: Deps) => Promise<void>;
 
@@ -13,6 +14,7 @@ const JOBS: Record<JobName, Job> = {
   summary, // a IA macro entra na Etapa 8
   weekly,
   maintenance,
+  queue: async (env, deps) => void (await processNewsQueue(env, deps)),
 };
 
 export async function runScheduled(cron: string, env: Env, deps: Deps): Promise<JobName> {

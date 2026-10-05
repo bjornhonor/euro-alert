@@ -3,7 +3,8 @@ import { setState } from "../db/state";
 import { safeEqual } from "../lib/crypto";
 import { errorFields, log } from "../lib/log";
 import { TelegramApi } from "./api";
-import { alertsKeyboard, handleCommand, sendChart, sendNewsAnalysis, toggleAlertOption } from "./commands";
+import { enqueueNews } from "../ai/queue";
+import { alertsKeyboard, handleCommand, sendChart, toggleAlertOption } from "./commands";
 
 interface Update {
   update_id: number;
@@ -66,8 +67,11 @@ async function reply(update: Update, env: Env, deps: Deps): Promise<void> {
   if (!cb) return handleCommand(update.message?.text ?? "", env, deps);
 
   const data = cb.data ?? "";
+  // Responder o clique é só o aviso no topo da tela: se falhar (clique velho), segue o trabalho.
   const answer = (text: string) =>
-    api.call("answerCallbackQuery", { callback_query_id: cb.id, text, show_alert: false });
+    api
+      .call("answerCallbackQuery", { callback_query_id: cb.id, text, show_alert: false })
+      .catch((err) => log("warn", "telegram: resposta ao botão falhou", errorFields(err)));
 
   if (data === "mute:24h") {
     const now = deps.clock.now();
@@ -91,7 +95,7 @@ async function reply(update: Update, env: Env, deps: Deps): Promise<void> {
     }
   } else if (data.startsWith("ai:")) {
     await answer("🔎 Pesquisando as notícias…");
-    await sendNewsAnalysis(env, deps, Number(data.slice(3)));
+    await enqueueNews(env, deps, Number(data.slice(3)));
   } else {
     await answer("Botão desconhecido.");
   }
