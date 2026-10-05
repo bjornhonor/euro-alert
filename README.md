@@ -7,10 +7,16 @@ O plano completo está em [docs/PLANO.md](docs/PLANO.md); a pesquisa que embasa 
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars   # preencha as chaves
 npm run db:migrate:local
 npm run dev                      # Worker local em http://localhost:8787
 ```
+
+Arquivos locais, todos fora do git (nem modelo vai pro repositório):
+
+| Arquivo     | Quem lê              | Variáveis                                                                                                                          |
+| ----------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `.env`      | wrangler (CLI)       | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`                                                                                    |
+| `.dev.vars` | Worker rodando local | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_CHAT_ID`, `WISE_API_TOKEN` (opcional), `GEMINI_API_KEY`, `GROQ_API_KEY` |
 
 Disparar um cron localmente (com `npm run dev` rodando):
 
@@ -28,7 +34,7 @@ curl "localhost:8787/cdn-cgi/local/scheduled?cron=0+6+*+*+*"
 ## Colocar no ar (primeira vez)
 
 O projeto usa a conta pessoal da Cloudflare (`account_id` fixo no `wrangler.jsonc`). As credenciais ficam no `.env`
-(modelo em `.env.example`) e valem só aqui: o `wrangler login` da máquina não é usado. Confira com `npx wrangler whoami`.
+e valem só aqui: o `wrangler login` da máquina não é usado. Confira com `npx wrangler whoami`.
 
 1. ✅ Banco criado (`wrangler d1 create euro-alert`) e migrações aplicadas (`npm run db:migrate:remote`).
 2. Criar o bot no @BotFather (`/newbot`), mandar uma mensagem pra ele e pegar o `chat_id` em `https://api.telegram.org/bot<TOKEN>/getUpdates`.
