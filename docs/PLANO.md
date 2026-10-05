@@ -482,13 +482,13 @@ Formatos testados em 23/09/2026. Amostras no [Apêndice B](#apêndice-b-formatos
 - **Selic meta (série 432):** `https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados?formato=json&dataInicial=dd/MM/aaaa&dataFinal=dd/MM/aaaa` → `[{data, valor}]`.
   - **Pegadinha:** `/ultimos/N` devolve datas **futuras** (até a próxima reunião do Copom). Filtre por data ≤ hoje.
   - Séries diárias aceitam no máximo 10 anos por consulta.
-- **CDI (série 12):** mesmo formato, em % ao dia.
+- **CDI (série 12):** fora do app (só servia para simular dinheiro rendendo); continua na pesquisa.
 - **IPCA (série 433):** variação mensal em %. Monta o índice acumulado para o câmbio real.
 
 ### 7.6 Inflação da zona do euro (câmbio real)
 
-- **Principal:** API do BCE, série `ICP/M.U2.N.000000.4.INX` (índice harmonizado, mensal). Instável nos testes daqui, então usar cache de 30 dias, já que o dado é mensal.
-- **Reserva:** Eurostat `prc_hicp_midx` (`geo=EA`, `coicop=CP00`, `unit=I15`). A série parou em dez/2025 com a mudança de base de 2026; servirá para o histórico.
+- **Fonte (desde 05/10/2026):** Eurostat `prc_hicp_minr` (`geo=EA`, `coicop18=TOTAL`, `unit=I25`, índice 2025 = 100). Traz o histórico inteiro desde 1996 numa base só e já publica 2026 (o último mês sai como estimativa rápida).
+- **Séries antigas (não usar):** a do BCE (`ICP/M.U2.N.000000.4.INX`) e a `prc_hicp_midx` da Eurostat, ambas com base 2015 = 100, pararam em dez/2025. Misturar bases distorce o câmbio real.
 - **Mês ainda não publicado:** repetir a última variação anual conhecida, dividida por 12 (erro de ~0,1% no câmbio real).
 - **Focus (expectativa do câmbio):** `https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoAnuais?$top=4&$filter=Indicador%20eq%20'C%C3%A2mbio'&$orderby=Data%20desc&$format=json`.
   - **Codifique a URL** (%20 e o acento), senão a API devolve 400.
@@ -721,20 +721,22 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 
 **Objetivo:** histórico completo no D1 e coleta confiável a cada 15 minutos, com reserva e aviso de falha.
 
-- [ ] **2.1** `providers/types.ts`: `Quote { pair, mid, bid?, ask?, ts, source }` e `RateProvider { name, latest(pair) }`.
-- [ ] **2.2** `wise-official.ts`, `wise-public.ts` e `awesomeapi.ts`.
-- [ ] **2.3 Cadeia com validação:** aceita a primeira cotação válida. Rejeita variação > 3% contra a última salva, a menos que outra fonte confirme. Registra a fonte usada.
-- [ ] **2.4** `jobs/tick.ts` (parte 1): coleta EURBRL, USDBRL e EURUSD e grava em `rates`.
-- [ ] **2.5** `scripts/backfill.ts`:
+**Feito em 05/10/2026.** Carga inicial: 6.362 dias de câmbio (BCE 2002 → 04/10/2021, Wise daí em diante), 141 mudanças da Selic, 297 meses de IPCA e 298 de inflação do euro.
+
+- [x] **2.1** `providers/types.ts`: `Quote { pair, mid, bid?, ask?, ts, source }` e `RateProvider { name, latest(pair) }`.
+- [x] **2.2** `wise-official.ts`, `wise-public.ts` e `awesomeapi.ts`.
+- [x] **2.3 Cadeia com validação:** aceita a primeira cotação válida. Rejeita variação > 3% contra a última salva, a menos que outra fonte confirme. Registra a fonte usada.
+- [x] **2.4** `jobs/tick.ts` (parte 1): coleta EURBRL, USDBRL e EURUSD e grava em `rates`.
+- [x] **2.5** `scripts/backfill.ts`:
   - baixa o BCE (Frankfurter, 2002 a 22/09/2021), a Wise diária (5 anos) e Selic/CDI (SGS, em janelas de 10 anos);
   - gera SQL e aplica com `wrangler d1 execute euro-alert --remote --file=backfill.sql`.
 
   São ~9 mil linhas.
-- [ ] **2.6** `wise-fees.ts` + manutenção diária: consulta `comparisons` com R$ 300, R$ 1.000 e R$ 5.000, grava em `fee_quotes` e ajusta a curva de tarifa. Avisa se o modelo mudar mais de 10%.
-- [ ] **2.7** `bcb.ts`: Selic (filtrando datas futuras), CDI, Focus e IPCA (série 433). `ecb.ts`: taxa de depósito (cache de 7 dias) e inflação da zona do euro (cache de 30 dias, reserva na Eurostat). Tudo vai para `macro_series`.
-- [ ] **2.8 Consolidação diária:** o último preço do dia (horário de Brasília) vai para `daily_close`. Apagar `rates` com mais de 90 dias.
-- [ ] **2.9 Vigia de dados:** sem cotação nova há 45 minutos em horário de mercado, manda alerta de sistema (uma vez por incidente, com aviso quando voltar).
-- [ ] **2.10 Fixtures:** respostas reais de cada API em `test/fixtures/` (amostras em `research/data/`).
+- [x] **2.6** `wise-fees.ts` + manutenção diária: consulta `comparisons` com R$ 300, R$ 1.000 e R$ 3.000, grava em `fee_quotes` e ajusta a curva de tarifa. Avisa se o modelo mudar mais de 10%.
+- [x] **2.7** `bcb.ts`: Selic (filtrando datas futuras), Focus e IPCA (série 433). `euro-area.ts`: taxa de depósito do BCE e inflação da zona do euro (Eurostat), ambas com cache de 7 dias. Tudo vai para `macro_series`.
+- [x] **2.8 Consolidação diária:** o último preço do dia (horário de Brasília) vai para `daily_close`. Apagar `rates` com mais de 90 dias.
+- [x] **2.9 Vigia de dados:** sem cotação nova há 45 minutos em horário de mercado, manda alerta de sistema (uma vez por incidente, com aviso quando voltar).
+- [x] **2.10 Fixtures:** respostas reais de cada API em `test/fixtures/` (amostras em `research/data/`).
 
 **Testes:**
 - parser de cada provedor com fixture;

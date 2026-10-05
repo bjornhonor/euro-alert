@@ -1,0 +1,57 @@
+{
+  "@odata.context": "https://was-p.bcnet.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata$metadata#ExpectativasMercadoAnuais",
+  "value": [
+    {
+      "Indicador": "Câmbio",
+      "IndicadorDetalhe": null,
+      "Data": "2026-10-02",
+      "DataReferencia": "2026",
+      "Media": 5.1897,
+      "Mediana": 5.2,
+      "DesvioPadrao": 0.1241,
+      "Minimo": 4.8,
+      "Maximo": 5.45,
+      "numeroRespondentes": 110,
+      "baseCalculo": 0
+    },
+    {
+      "Indicador": "Câmbio",
+      "IndicadorDetalhe": null,
+      "Data": "2026-10-02",
+      "DataReferencia": "2027",
+      "Media": 5.2586,
+      "Mediana": 5.28,
+      "DesvioPadrao": 0.1874,
+      "Minimo": 4.7,
+      "Maximo": 5.68,
+      "numeroRespondentes": 110,
+      "baseCalculo": 0
+    },
+    {
+      "Indicador": "Câmbio",
+      "IndicadorDetalhe": null,
+      "Data": "2026-10-02",
+      "DataReferencia": "2028",
+      "Media": 5.2956,
+      "Mediana": 5.3,
+      "DesvioPadrao": 0.2226,
+      "Minimo": 4.5,
+      "Maximo": 6.0,
+      "numeroRespondentes": 85,
+      "baseCalculo": 0
+    },
+    {
+      "Indicador": "Câmbio",
+      "IndicadorDetalhe": null,
+      "Data": "2026-10-02",
+      "DataReferencia": "2029",
+      "Media": 5.3459,
+      "Mediana": 5.33,
+      "DesvioPadrao": 0.256,
+      "Minimo": 4.5,
+      "Maximo": 6.2,
+      "numeroRespondentes": 79,
+      "baseCalculo": 0
+    }
+  ]
+}

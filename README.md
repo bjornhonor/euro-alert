@@ -24,12 +24,13 @@ Disparar um cron localmente (com `npm run dev` rodando):
 curl "localhost:8787/cdn-cgi/local/scheduled?cron=0+6+*+*+*"
 ```
 
-| Script               | O que faz                                                                              |
-| -------------------- | -------------------------------------------------------------------------------------- |
-| `npm test`           | testes no runtime dos Workers (D1 local, rede simulada)                                |
-| `npm run typecheck`  | TypeScript do app, dos testes e dos scripts                                            |
-| `npm run lint`       | ESLint + Prettier (`npm run format` corrige)                                           |
-| `npm run cf-typegen` | regera `worker-configuration.d.ts` depois de mudar o `wrangler.jsonc` ou o `.dev.vars` |
+| Script                                        | O que faz                                                                              |
+| --------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `npm test`                                    | testes no runtime dos Workers (D1 local, rede simulada)                                |
+| `npm run typecheck`                           | TypeScript do app, dos testes e dos scripts                                            |
+| `npm run lint`                                | ESLint + Prettier (`npm run format` corrige)                                           |
+| `npm run backfill -- --local` (ou `--remote`) | carrega o histórico: câmbio desde 2002, Selic, IPCA e inflação do euro                 |
+| `npm run cf-typegen`                          | regera `worker-configuration.d.ts` depois de mudar o `wrangler.jsonc` ou o `.dev.vars` |
 
 ## Colocar no ar (primeira vez)
 

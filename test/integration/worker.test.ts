@@ -13,7 +13,7 @@ beforeEach(() => {
   sent = [];
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
-    if (!url.startsWith("https://api.telegram.org/")) throw new Error(`fetch inesperado: ${url}`);
+    if (!url.startsWith("https://api.telegram.org/")) return new Response("fora do ar", { status: 404 });
     sent.push({ url, body: JSON.parse(String(init?.body ?? "{}")) });
     return Response.json({ ok: true, result: { message_id: sent.length } });
   });

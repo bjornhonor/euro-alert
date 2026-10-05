@@ -1,0 +1,57 @@
+{
+  "providerCountry": null,
+  "providerType": null,
+  "providerTypes": ["bank", "moneyTransferProvider"],
+  "providers": [
+    {
+      "quotes": [
+        {
+          "dateCollected": "2026-09-23T18:36:16Z",
+          "deliveryEstimation": {
+            "deliveryDate": {
+              "min": "2026-09-23T18:51:16.000000507Z",
+              "max": "2026-09-23T18:51:16.000000507Z"
+            },
+            "duration": { "min": "PT14M59.675534249S", "max": "PT14M59.675534249S" },
+            "durationType": "CALENDAR",
+            "providerGivesEstimate": true
+          },
+          "fee": 121.44,
+          "markup": 0.0,
+          "rate": 0.169894,
+          "receivedAmount": 489.05,
+          "sourceCountry": null,
+          "targetCountry": null
+        }
+      ],
+      "alias": "wise",
+      "id": 39,
+      "logo": "https://wise.com/public-resources/assets/logos/wise-personal/logo.svg",
+      "logos": {
+        "normal": {
+          "svgUrl": "https://wise.com/public-resources/assets/logos/wise-personal/logo.svg",
+          "pngUrl": "https://wise.com/public-resources/assets/logos/wise-personal/logo.png"
+        },
+        "inverse": {
+          "svgUrl": "https://wise.com/public-resources/assets/logos/wise-personal/logo_inverse.svg",
+          "pngUrl": "https://wise.com/public-resources/assets/logos/wise-personal/logo_inverse.png"
+        },
+        "white": {
+          "svgUrl": "https://wise.com/public-resources/assets/logos/wise-personal/logo_white.svg",
+          "pngUrl": "https://wise.com/public-resources/assets/logos/wise-personal/logo_white.png"
+        },
+        "circle": { "svgUrl": "https://dq8dwmysp7hk1.cloudfront.net/logos/wise-mark.svg", "pngUrl": null },
+        "altText": "Wise"
+      },
+      "name": "Wise",
+      "partner": false,
+      "type": "moneyTransferProvider"
+    },
+    { "alias": "outro", "quotes": [{ "fee": 99, "rate": 0.1, "receivedAmount": 1 }] }
+  ],
+  "sendAmount": 3000.0,
+  "sourceCountry": null,
+  "sourceCurrency": "BRL",
+  "targetCountry": null,
+  "targetCurrency": "EUR"
+}
