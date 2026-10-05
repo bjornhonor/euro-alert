@@ -2,72 +2,60 @@ import { getState, setState } from "../db/state";
 import { type FetchFn, HttpError, http } from "../lib/http";
 import { errorFields, log } from "../lib/log";
 
-export interface JsonSchema {
-  name: string;
-  schema: Record<string, unknown>;
-}
-
 export interface LlmRequest {
-  task: "alerta" | "analise";
+  task: "analise";
   system: string;
   user: string;
-  schema: JsonSchema;
   timeoutMs?: number;
 }
 
-/** Provedor compatível com a API da OpenAI (Groq, Cerebras, OpenRouter). */
+/** Modelo no Groq (API compatível com a da OpenAI). */
 export interface LlmProvider {
   name: string;
   model: string;
   baseUrl: string;
   apiKey: string;
-  /** Campos extras do corpo (ex.: reasoning_effort do gpt-oss). */
-  extra?: Record<string, unknown>;
 }
 
-/** Depois de tantas falhas seguidas, o provedor fica fora por um tempo. */
+/** Depois de tantas falhas seguidas, o modelo fica fora por um tempo. */
 const BREAKER_FAILS = 3;
 const BREAKER_MS = 15 * 60 * 1000;
 
 type Breakers = Record<string, { fails: number; until: number }>;
 
+/** Só o Groq: o gpt-oss tem busca na web embutida (`browser_search`). O 20b é a reserva. */
 export function groqProviders(apiKey: string | undefined): LlmProvider[] {
   if (!apiKey) return [];
-  const base = { baseUrl: "https://api.groq.com/openai/v1", apiKey };
-  const gptOss = { reasoning_effort: "low", include_reasoning: false };
+  const base = { name: "groq", baseUrl: "https://api.groq.com/openai/v1", apiKey };
   return [
-    { name: "groq", model: "openai/gpt-oss-120b", ...base, extra: gptOss },
-    { name: "groq", model: "openai/gpt-oss-20b", ...base, extra: gptOss },
+    { ...base, model: "openai/gpt-oss-120b" },
+    { ...base, model: "openai/gpt-oss-20b" },
   ];
 }
 
-async function callOnce(
+async function callWithSearch(
   fetchImpl: FetchFn,
   p: LlmProvider,
   req: LlmRequest,
-  retryNote?: string,
+  note?: string,
 ): Promise<string> {
-  const messages = [
-    { role: "system", content: req.system },
-    { role: "user", content: req.user },
-    ...(retryNote ? [{ role: "user", content: retryNote }] : []),
-  ];
   const res = await http(`${p.baseUrl}/chat/completions`, {
     method: "POST",
     headers: { authorization: `Bearer ${p.apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({
       model: p.model,
-      messages,
       temperature: 0.3,
-      response_format: {
-        type: "json_schema",
-        json_schema: { name: req.schema.name, strict: true, schema: req.schema.schema },
-      },
-      ...p.extra,
+      reasoning_effort: "medium",
+      tools: [{ type: "browser_search" }],
+      messages: [
+        { role: "system", content: req.system },
+        { role: "user", content: req.user },
+        ...(note ? [{ role: "user", content: note }] : []),
+      ],
     }),
     fetchImpl,
     retries: 1, // uma nova tentativa em 429/5xx
-    timeoutMs: req.timeoutMs ?? 20_000,
+    timeoutMs: req.timeoutMs ?? 60_000,
   });
   const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   const content = data.choices?.[0]?.message?.content;
@@ -75,12 +63,20 @@ async function callOnce(
   return content;
 }
 
+/** Tira o JSON do texto (às vezes vem entre ``` ou com uma frase antes). */
+export function extractJson(text: string): unknown {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("a resposta não tem JSON");
+  return JSON.parse(text.slice(start, end + 1));
+}
+
 /**
- * Pede uma resposta em JSON à cadeia de provedores, na ordem. Cada resposta passa por
- * `validate`; se falhar, o mesmo provedor tenta de novo uma vez com o erro, depois vai para o
- * próximo. Registra tudo em `ai_calls` e mantém o disjuntor de cada provedor/modelo.
+ * Pede uma resposta com busca na web, na ordem dos modelos. A resposta passa por `validate`;
+ * se falhar, o mesmo modelo tenta de novo uma vez com o erro, depois vai para o próximo.
+ * Registra tudo em `ai_calls` e mantém o disjuntor de cada modelo.
  */
-export async function completeJson<T>(
+export async function completeWithSearch<T>(
   db: D1Database,
   fetchImpl: FetchFn,
   providers: readonly LlmProvider[],
@@ -110,21 +106,15 @@ export async function completeJson<T>(
       for (let attempt = 0; attempt < 2; attempt++) {
         const started = Date.now();
         try {
-          const raw = await callOnce(fetchImpl, p, req, note);
-          const value = validate(JSON.parse(raw));
+          const value = validate(extractJson(await callWithSearch(fetchImpl, p, req, note)));
           await record(p, true, started);
           return { value, provider: p.name, model: p.model };
         } catch (err) {
           const msg = err instanceof HttpError ? `${err.message}: ${err.body.slice(0, 200)}` : String(err);
           await record(p, false, started, msg);
-          log("warn", "ia: tentativa falhou", {
-            provider: p.name,
-            model: p.model,
-            attempt,
-            ...errorFields(err),
-          });
-          if (err instanceof HttpError && err.status !== 400) break; // erro de rede/limite: vai para o próximo
-          note = `Sua resposta anterior foi recusada: ${msg.slice(0, 300)}. Responda de novo, só com o JSON válido.`;
+          log("warn", "ia: tentativa falhou", { model: p.model, attempt, ...errorFields(err) });
+          if (err instanceof HttpError && err.status !== 400) break; // limite ou rede: próximo modelo
+          note = `Sua resposta anterior foi recusada: ${msg.slice(0, 300)}. Responda de novo, só com o JSON pedido.`;
         }
       }
     }

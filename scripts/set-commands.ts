@@ -16,7 +16,7 @@ const commands = [
   { command: "epoca", description: "A boa época atual e as anteriores" },
   { command: "grafico", description: "Gráfico (90d, 1a ou 5a)" },
   { command: "placar", description: "Como as boas épocas se saíram" },
-  { command: "analise", description: "Leitura da IA sobre o momento do euro" },
+  { command: "analise", description: "Notícias e tendência de 7 dias (IA)" },
   { command: "pausar", description: "Silencia os alertas (ex.: 3d, 12h)" },
   { command: "retomar", description: "Volta a avisar" },
   { command: "alertas", description: "Liga e desliga os alertas opcionais" },

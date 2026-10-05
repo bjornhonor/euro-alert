@@ -34,7 +34,6 @@ curl "localhost:8787/cdn-cgi/local/scheduled?cron=0+6+*+*+*"
 | `npm run epochs -- --remote`                        | reconstrói as épocas históricas e o placar (rodar uma vez, antes de ligar os alertas)  |
 | `npm run job -- resend`                             | reenvia o último alerta com o modelo de mensagem atual (para conferir o texto)         |
 | `npm run set-commands`                              | registra o menu de comandos do bot no Telegram                                         |
-| `npm run ai-eval`                                   | avalia a IA do alerta em 20 épocas históricas (formato, números, idioma)               |
 | `npm run cf-typegen`                                | regera `worker-configuration.d.ts` depois de mudar o `wrangler.jsonc` ou o `.dev.vars` |
 
 ## Colocar no ar (primeira vez)

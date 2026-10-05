@@ -40,8 +40,7 @@ O app acompanha o EUR/BRL o tempo todo (com base na Wise), identifica **boas ép
 | Contexto do alerta | 12 meses (o gatilho), 5 anos e a história desde 2002 corrigida pela inflação (seção 3.2), mais o custo na Wise |
 | Horário dos alertas | 8h às 22h em dias úteis. O câmbio que a Wise usa funciona 24 horas nos dias úteis (seção 3.4) |
 | Meta de preço | Não tem. As referências são as médias de 12 meses, de 5 anos e da história |
-| IA do alerta | Groq (`openai/gpt-oss-120b` e `openai/gpt-oss-20b`). Reservas: Cerebras e OpenRouter |
-| IA macro | Gemini 2.5 Flash com busca no Google, em duas passadas. Reserva: manchetes por RSS + Groq |
+| IA | Uma só, sob demanda (botão 🤖 e `/analise`): pesquisa as notícias macro que mexem com o euro e o real, explica a cadeia de causas da oscilação atual e dá a tendência dos próximos 7 dias, com fontes. Groq `gpt-oss-120b` com busca na web embutida (`browser_search`); reserva `gpt-oss-20b` (decidido em 05/10/2026) |
 | Histórico para estudo | Público (24 anos do BCE, 5 anos da Wise, ~3 anos por hora do Yahoo). Não depende de acumular dados próprios |
 
 ## 2. Princípios
@@ -566,89 +565,35 @@ Os números aceitam vírgula ou ponto como separador decimal.
 
 ## 9. Camada de IA
 
-### 9.1 Cadeia de provedores
+**Decidido em 05/10/2026:** o app tem uma IA só, e ela só roda quando pedida. Os números o próprio alerta e o gráfico já mostram; a IA explica o **porquê**, com notícias.
 
-```ts
-interface LlmProvider {
-  name: string;
-  supportsSearch: boolean;
-  complete(req: LlmRequest): Promise<LlmResponse>;
-}
-```
+### 9.1 Quando roda
 
-| Tarefa | Ordem |
-|---|---|
-| `alerta` | Groq `gpt-oss-120b` → Groq `gpt-oss-20b` → Cerebras → OpenRouter |
-| `macro_1` (com busca) | Gemini 2.5 Flash + `google_search` → (sem busca) Groq com as manchetes do RSS |
-| `macro_2` (estruturar) | Groq `gpt-oss-20b` com schema estrito → Gemini sem ferramentas com `responseJsonSchema` |
+- Botão **🤖 Notícias** nos alertas e o comando `/analise` (ou `/macro`). Nada de comentário automático no alerta.
+- A busca leva de 15 a 40 s: o bot manda "Pesquisando as notícias…" e depois troca a mensagem pelo resultado.
+- A análise fica 30 minutos em cache (cada uma faz várias buscas e gasta ~20 mil tokens da cota grátis).
 
-Timeout de 20 s (60 s na macro), 1 nova tentativa em 429 ou 5xx, e disjuntor: depois de 3 falhas seguidas o provedor fica 15 minutos fora. Toda chamada vai para `ai_calls`.
+### 9.2 O que ela faz
 
-### 9.2 IA do alerta
+- **Pesquisa** (busca na web do próprio modelo) as notícias dos últimos 7 dias dos dois lados: euro (BCE, inflação e crescimento europeus, política europeia, EUR/USD), real (política e eleições, fiscal, Copom, fluxo estrangeiro, commodities, USD/BRL) e global (Fed e dólar, risco, petróleo, geopolítica).
+- **Explica a cadeia de causa e efeito** da oscilação atual (notícia → efeito no euro ou no real) e diz qual lado puxou mais. Não analisa indicador por indicador.
+- **Tendência dos próximos 7 dias:** alta (euro mais caro), baixa, lateral ou incerta, com o porquê e o que pode mudar o cenário.
+- **Fontes** com título e link.
+- **Recebe do app** só o movimento do preço (variação em 1, 5 e 20 dias, de onde veio, distância da média de 12 meses) e o calendário dos próximos 7 dias. Nada pessoal.
+- **Saída:** JSON validado com zod (`resumo`, `o_que_aconteceu`, `tendencia_7d`, `tendencia_explicacao`, `o_que_pode_mudar`, `fontes`); links só `http(s)`; todo texto escapado no HTML do Telegram. Nunca diz para comprar ou vender.
 
-- **Quando roda:** em cada alerta de boa época (início e novo nível), no alerta de disparada e no `/analise`. O alerta sai na hora; o comentário entra alguns segundos depois via `editMessageText` (`ctx.waitUntil`, até 30 s).
-- **Pergunta central:** isso parece desconto temporário ou tendência de queda do euro?
-- **Entrada:** só números já calculados:
-  ```json
-  {
-    "alerta": { "tipo": "epoca_inicio", "nivel": "boa", "preco": 5.8564 },
-    "horizontes": {
-      "12m": { "media": 6.0543, "distancia": -0.033, "mais_barato_que": 0.82 },
-      "5a": { "media": 5.8042, "distancia": 0.009, "mais_barato_que": 0.48 },
-      "historia_real": { "media": 5.4943, "distancia": 0.066, "mais_barato_que": 0.32 }
-    },
-    "tendencia": { "media12m": 6.0543, "inclinacao_3m": -0.019, "acima_media20": false, "acima_media50": false },
-    "score": { "valor": 64, "componentes": { "pct90": 0.12, "z20": -1.1, "rsi": 38, "queda5d": -0.009 } },
-    "serie_60d": [6.02, 6.00, "..."],
-    "decomposicao_20d": { "eurusd": -0.004, "usdbrl": -0.021 },
-    "projecao": { "faixa68_1m": [5.64, 6.08] },
-    "sazonalidade_mes": { "mes": "setembro", "desvio_medio": 0.003 },
-    "macro": { "vies": 0, "resumo": "..." },
-    "eventos_14d": [{ "data": "2026-10-04", "titulo": "Eleição, 1º turno" }],
-    "placar": { "epocas_12m": 2, "desconto_medio_3m": -0.021 }
-  }
-  ```
-- **Saída (schema zod):** `{ leitura: "desconto_temporario" | "tendencia_de_queda" | "incerto", confianca: "baixa" | "media" | "alta", motivos: string[1..3], riscos: string[0..2], o_que_mudaria: string, texto_curto: string (até 280 caracteres) }`.
-- **Regras do prompt:**
-  - escrever em português;
-  - usar só os números da entrada;
-  - nunca prometer resultado nem dizer "compre";
-  - citar os eventos dos próximos 14 dias.
-- **Validação:** se o JSON vier inválido, tenta de novo 1 vez mandando o erro. Todo número citado no texto precisa existir na entrada (checagem automática). Se falhar, o alerta fica sem comentário.
+### 9.3 Modelos
 
-### 9.3 IA macro
+| Ordem | Modelo | Observação |
+|---|---|---|
+| 1 | Groq `openai/gpt-oss-120b` + `browser_search` | ~13 s, ~24 mil tokens por análise |
+| 2 | Groq `openai/gpt-oss-20b` + `browser_search` | reserva |
 
-- **1ª passada (Gemini com busca):** recebe o pacote de dados e devolve um texto com seções fixas:
-  - Resumo;
-  - O que moveu o EUR/BRL (euro ou real);
-  - Fatores das próximas semanas (↑ ou ↓, com força);
-  - Cenários de 1 a 4 semanas (base, alta e baixa, com probabilidade aproximada);
-  - Eventos;
-  - Viés de −2 a +2.
-
-  As fontes vêm do `groundingMetadata`.
-- **2ª passada:** converte o texto no JSON do schema.
-- **Pacote de dados:**
-  - decomposição do EUR/BRL em EUR/USD × USD/BRL;
-  - Selic, juro do BCE e a diferença entre eles (só contexto, princípio 2);
-  - Focus;
-  - estado da boa época;
-  - eventos da semana;
-  - manchetes do RSS.
-- **Entrega:** mensagem curta às 8h (resumo, viés, estado da época, 3 fatores, eventos do dia) com botão "completo". Tudo fica salvo em `macro_briefings`, e o viés também entra em `predictions`.
-- **Gatilhos extras:** variação intradiária ≥ 1,5% gera uma mini-análise.
+Nova tentativa em 429/5xx, uma tentativa extra com o erro quando o JSON vem inválido, disjuntor de 15 minutos depois de 3 falhas seguidas e registro de toda chamada em `ai_calls`.
 
 ### 9.4 Placar da IA
 
-- A manutenção preenche `price_1m` e `price_3m` em `predictions`.
-- O `/placar` mostra a taxa de acerto por tipo: a leitura "tendência de queda" acertou se o preço caiu depois?
-- O viés macro só pode influenciar alguma regra com ≥ 60 observações e acerto significativamente acima de 50% (teste binomial, p < 0,05), e ainda assim só depois de passar no backtest.
-
-### 9.5 Privacidade
-
-No plano grátis, o Gemini pode usar o que recebe pra treinar modelos. O app só manda dados de mercado.
-
----
+Cada análise grava a tendência de 7 dias em `predictions` (`kind = 'tendencia_7d'`: +1 alta, −1 baixa, 0 lateral ou incerta). A manutenção preenche o preço 7 dias, 1 mês e 3 meses depois, para medir se a IA acerta a direção.
 
 ## 10. Etapas de desenvolvimento
 
@@ -664,7 +609,7 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 | 5. Validação dos sinais | backtest dos alertas com walk-forward; parâmetros confirmados | 4 | M |
 | 6. Bot completo | todos os comandos, gráfico e relatório semanal | 4 | M |
 | 7. IA do alerta | leitura "desconto ou tendência" em cada alerta e `/analise` | 4 | M |
-| 8. IA macro | resumo diário com fontes, alertas de evento, placar da IA | 7 | G |
+| 8. Calendário e placar da IA | alertas de evento (Copom, BCE, Fed, eleição) e placar da tendência da IA no `/placar` | 7 | M |
 | 9. Operação | vigia externo, backup, runbook, ensaio de falhas | 6 | P |
 | 10. Sinais v2 | câmbio real e momentum como réguas extras | 5 | G |
 
@@ -682,7 +627,7 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
   curl -H "Authorization: Bearer $WISE_TOKEN" "https://api.wise.com/v1/rates?source=EUR&target=BRL"
   ```
   Se a conta Wise Brasil não liberar, registrar em `docs/decisoes.md`; o endpoint público vira a fonte principal.
-- [ ] **0.3 Gemini:** criar a chave no Google AI Studio e anotar a cota do projeto.
+- ~~**0.3 Gemini**~~: não é mais necessário (a IA usa só o Groq).
 - [ ] **0.4 Groq:** criar a conta e a chave.
 - [ ] **0.5 Reservas (opcional):** chaves do Cerebras e do OpenRouter.
 - [x] **0.6 Cloudflare:** conta pessoal grátis; token de API só deste projeto no `.env` (o `wrangler login` da máquina fica para outros projetos).
@@ -871,36 +816,27 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 
 ### Etapa 7: IA do alerta · M
 
-**Feito em 05/10/2026.** 131 testes. Avaliação com 20 inícios de época reais (`npm run ai-eval`): 18 de 20 passaram em formato, idioma, tamanho e números (as falhas: o modelo não gerou o JSON uma vez e citou "50", hoje aceito como referência técnica). A leitura bateu com os 3 meses seguintes em 7 de 14 casos: cara ou coroa, como esperado, por isso o placar da IA mede isso ao vivo. A reserva hoje é só o Groq `gpt-oss-20b`; Cerebras e OpenRouter ficam para quando precisar, e o Gemini entra na Etapa 8.
+**Feito em 05/10/2026 e refeito no mesmo dia** a pedido: a leitura numérica automática no alerta saiu; ficou só a análise de notícias sob demanda (seção 9), com Groq `gpt-oss-120b` e busca na web. 127 testes.
 
 - [x] **7.1** `ai/llm.ts`: interface, cadeia de reserva, timeout, nova tentativa em 429/5xx, disjuntor e registro em `ai_calls`.
-- [x] **7.2** Adaptadores compatíveis com OpenAI (Groq, Cerebras, OpenRouter) e adaptador do Gemini.
-- [x] **7.3** `alert-analyst.ts`: monta a entrada (seção 9.2), prompt, schema zod e `response_format` com json_schema.
-- [x] **7.4** O alerta sai na hora e o comentário entra depois com `editMessageText`.
-- [x] **7.5** `/analise` sob demanda.
-- [x] **7.6** Grava a leitura em `predictions`.
-- [x] **7.7 Conjunto de avaliação:** 20 situações históricas em fixtures, incluindo épocas que viraram desconto e épocas que viraram tendência. Confere schema, idioma, tamanho e se todo número do texto existe na entrada.
+- [x] **7.2** Groq com busca na web (`browser_search`); Cerebras, OpenRouter e Gemini ficaram de fora.
+- [x] **7.3** `ai/news-analyst.ts`: contexto (movimento do preço e calendário), prompt de notícias, schema zod e a mensagem.
+- [x] **7.4** Só sob demanda: botão 🤖 Notícias e `/analise`, com "Pesquisando…" trocado pelo resultado.
+- [x] **7.5** Cache de 30 minutos.
+- [x] **7.6** Grava a tendência de 7 dias em `predictions` (com `price_7d`, migração 0003).
+- ~~**7.7 Conjunto de avaliação numérico**~~: saiu junto com a leitura numérica.
 
 **Pronto quando:** ≥ 90% dos alertas recebem comentário em até 30 s, ≥ 98% das respostas passam no schema e a reserva funciona com a chave do Groq inválida.
 
 ---
 
-### Etapa 8: IA macro · G
+### Etapa 8: calendário e placar da IA · M
 
-- [ ] **8.1** `macro/data-pack.ts`:
-  - decomposição do EUR/BRL em 1, 5 e 20 dias;
-  - Selic, juro do BCE, diferença entre eles e Focus (só contexto);
-  - estado da época;
-  - eventos da semana;
-  - 10–20 manchetes.
-- [ ] **8.2 1ª passada:** Gemini 2.5 Flash com `google_search`, texto em seções fixas; os `groundingChunks` viram as fontes.
-- [ ] **8.3 2ª passada:** estruturar em JSON (Groq 20b com schema estrito; reserva: Gemini sem ferramentas com `responseJsonSchema`).
-- [ ] **8.4 Reserva sem busca:** manchetes do RSS + Groq, com a marcação "sem busca".
-- [ ] **8.5** Resumo das 8h com botão "completo"; salva em `macro_briefings`, com o viés em `predictions`.
-- [ ] **8.6** Mini-análise quando a variação intradiária passar de 1,5%.
-- [ ] **8.7** `config/events-br.json` com eleição, Copom e IPCA.
+**Repensada em 05/10/2026:** a IA macro diária (Gemini, resumo das 8h) saiu; a análise de notícias roda só sob demanda (seção 9).
 
-**Pronto quando:** 5 dias úteis seguidos de resumo com pelo menos 3 fontes, e o caminho de reserva testado.
+- [ ] **8.1 Calendário:** ForexFactory (BCE, Fed, dados dos EUA e da zona do euro) + `config/events.json` (Copom, eleição, IPCA) na tabela `events`.
+- [ ] **8.2 Alerta de evento:** véspera de Copom, BCE, Fed e eleição (seção 3.5).
+- [ ] **8.3 Placar da IA:** `/placar` mostra se a tendência de 7 dias acertou a direção.
 
 ---
 

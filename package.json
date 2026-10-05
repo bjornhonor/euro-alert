@@ -23,8 +23,7 @@
     "backfill": "node --use-system-ca scripts/backfill.ts",
     "job": "node --use-system-ca --env-file=.dev.vars scripts/run-job.ts",
     "epochs": "node --use-system-ca --import tsx scripts/epochs.ts",
-    "set-commands": "node --use-system-ca --env-file=.dev.vars scripts/set-commands.ts",
-    "ai-eval": "node --use-system-ca --env-file=.dev.vars --import tsx scripts/ai-eval.ts"
+    "set-commands": "node --use-system-ca --env-file=.dev.vars scripts/set-commands.ts"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.2.8",

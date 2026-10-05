@@ -1,71 +1,73 @@
+import { getState, setState } from "../db/state";
 import { type Deps } from "../deps";
-import { type Signal } from "../engine/signal";
+import { latestSignal } from "../jobs/signals";
 import { brt } from "../lib/time";
-import { loadScore } from "../alerts/scorecard";
+import { completeWithSearch, groqProviders } from "./llm";
 import {
-  type Analysis,
-  ANALYSIS_JSON_SCHEMA,
-  buildAnalystInput,
-  READING_VALUE,
-  SYSTEM_PROMPT,
-  validateAnalysis,
-} from "./alert-analyst";
-import { completeJson, groqProviders } from "./llm";
+  buildNewsContext,
+  NEWS_SYSTEM_PROMPT,
+  type NewsAnalysis,
+  TREND_VALUE,
+  validateNews,
+} from "./news-analyst";
 
-const FIVE_YEARS_MS = 5 * 365.25 * 86_400_000;
+/** Cada análise faz várias buscas (~20 mil tokens): reaproveita a última por 30 minutos. */
+const CACHE_MS = 30 * 60 * 1000;
 
-/**
- * Pede a leitura da IA para um alerta (ou para o momento, no /analise), valida, guarda em
- * `alerts.ai_comment` e registra a previsão em `predictions` para o placar da IA.
- * Devolve undefined se a IA não estiver configurada ou se nenhuma resposta passar na validação.
- */
-export async function analyze(
-  env: Env,
-  deps: Deps,
-  opts: { kind: string; level: string | null; signal: Signal; alertId?: number; task?: "alerta" | "analise" },
-): Promise<Analysis | undefined> {
-  const providers = groqProviders(env.GROQ_API_KEY);
-  if (providers.length === 0) return undefined;
-  const now = deps.clock.now();
-  const input = buildAnalystInput({
-    kind: opts.kind,
-    level: opts.level,
-    signal: opts.signal,
-    today: brt(now).date,
-    score: await loadScore(env.DB, now - FIVE_YEARS_MS),
-  });
-  const res = await completeJson(
-    env.DB,
-    deps.fetch,
-    providers,
-    {
-      task: opts.task ?? "alerta",
-      system: SYSTEM_PROMPT,
-      user: `Entrada:\n${JSON.stringify(input)}`,
-      schema: ANALYSIS_JSON_SCHEMA,
-    },
-    (raw) => validateAnalysis(raw, input),
-    now,
-  );
-  if (!res) return undefined;
-
-  const a = res.value;
-  if (opts.alertId) {
-    await env.DB.prepare("UPDATE alerts SET ai_comment = ? WHERE id = ?")
-      .bind(JSON.stringify({ ...a, provider: res.provider, model: res.model }), opts.alertId)
-      .run();
-  }
-  await env.DB.prepare(
-    "INSERT INTO predictions (ts, kind, value, price_at, ref_id) VALUES (?, 'leitura_alerta', ?, ?, ?)",
-  )
-    .bind(now, READING_VALUE[a.leitura], opts.signal.epoch.price, opts.alertId ?? null)
-    .run();
-  return a;
+interface Cached {
+  ts: number;
+  analysis: NewsAnalysis;
 }
 
-/** Preenche o preço 1 e 3 meses depois de cada leitura da IA (manutenção diária). */
+/**
+ * Análise de notícias e cenário (a única IA do app). Só roda quando pedida: botão 🤖 ou
+ * /analise. Usa a última por até 30 min; guarda no alerta (se veio de um) e registra a
+ * tendência de 7 dias em `predictions` para o placar.
+ */
+export async function newsAnalysis(
+  env: Env,
+  deps: Deps,
+  opts: { alertId?: number } = {},
+): Promise<{ analysis: NewsAnalysis; ts: number } | undefined> {
+  const now = deps.clock.now();
+  const cached = await getState<Cached>(env.DB, "news_analysis");
+  let result: Cached | undefined = cached && now - cached.ts < CACHE_MS ? cached : undefined;
+
+  if (!result) {
+    const providers = groqProviders(env.GROQ_API_KEY);
+    if (providers.length === 0) return undefined;
+    const { signal } = await latestSignal(env, now);
+    if (!signal) return undefined;
+    const t = brt(now);
+    const res = await completeWithSearch(
+      env.DB,
+      deps.fetch,
+      providers,
+      { task: "analise", system: NEWS_SYSTEM_PROMPT, user: buildNewsContext(signal, t.date, t.hour) },
+      validateNews,
+      now,
+    );
+    if (!res) return undefined;
+    result = { ts: now, analysis: res.value };
+    await setState(env.DB, "news_analysis", result, now);
+    await env.DB.prepare(
+      "INSERT INTO predictions (ts, kind, value, price_at) VALUES (?, 'tendencia_7d', ?, ?)",
+    )
+      .bind(now, TREND_VALUE[res.value.tendencia_7d], signal.epoch.price)
+      .run();
+  }
+
+  if (opts.alertId) {
+    await env.DB.prepare("UPDATE alerts SET ai_comment = ? WHERE id = ?")
+      .bind(JSON.stringify(result), opts.alertId)
+      .run();
+  }
+  return { analysis: result.analysis, ts: result.ts };
+}
+
+/** Preenche o preço 7 dias, 1 e 3 meses depois de cada previsão da IA (manutenção diária). */
 export async function updatePredictions(db: D1Database, now: number): Promise<void> {
-  const fill = (col: "price_1m" | "price_3m", days: number) =>
+  const fill = (col: "price_7d" | "price_1m" | "price_3m", days: number) =>
     db
       .prepare(
         `UPDATE predictions SET ${col} = (SELECT close FROM daily_close WHERE pair = 'EURBRL' ` +
@@ -74,6 +76,7 @@ export async function updatePredictions(db: D1Database, now: number): Promise<vo
       )
       .bind(days, now - days * 86_400_000)
       .run();
+  await fill("price_7d", 7);
   await fill("price_1m", 30);
   await fill("price_3m", 91);
 }

@@ -3,7 +3,7 @@ import { setState } from "../db/state";
 import { safeEqual } from "../lib/crypto";
 import { errorFields, log } from "../lib/log";
 import { TelegramApi } from "./api";
-import { alertAnalysis, alertsKeyboard, handleCommand, sendChart, toggleAlertOption } from "./commands";
+import { alertsKeyboard, handleCommand, sendChart, sendNewsAnalysis, toggleAlertOption } from "./commands";
 
 interface Update {
   update_id: number;
@@ -90,8 +90,8 @@ async function reply(update: Update, env: Env, deps: Deps): Promise<void> {
       });
     }
   } else if (data.startsWith("ai:")) {
-    await answer("🤖 Buscando a análise…");
-    await api.sendMessage(env.TELEGRAM_CHAT_ID, await alertAnalysis(env, deps, Number(data.slice(3))));
+    await answer("🔎 Pesquisando as notícias…");
+    await sendNewsAnalysis(env, deps, Number(data.slice(3)));
   } else {
     await answer("Botão desconhecido.");
   }

@@ -153,7 +153,7 @@ export function alertButtons(alertId: number) {
   return {
     inline_keyboard: [
       [
-        { text: "🤖 Análise", callback_data: `ai:${alertId}` },
+        { text: "🤖 Notícias", callback_data: `ai:${alertId}` },
         { text: "📈 Gráfico", callback_data: `chart:${alertId}` },
         { text: "🔕 24h", callback_data: "mute:24h" },
       ],
