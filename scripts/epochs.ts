@@ -54,6 +54,8 @@ const q = (v: string | number | null) => (v === null ? "NULL" : typeof v === "nu
 const sql: string[] = [
   "DELETE FROM alert_outcomes WHERE alert_id IN (SELECT id FROM alerts WHERE json_extract(context, '$.backfill') = 1);",
   "DELETE FROM alerts WHERE json_extract(context, '$.backfill') = 1;",
+  // alertas reais que apontam para épocas reconstruídas perdem o vínculo (a chave estrangeira impediria o DELETE)
+  "UPDATE alerts SET epoch_id = NULL WHERE epoch_id IN (SELECT id FROM epochs WHERE source = 'backfill');",
   "DELETE FROM epochs WHERE source = 'backfill';",
 ];
 for (const e of epochs) {

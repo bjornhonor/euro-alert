@@ -1,4 +1,4 @@
-import { handleAdminRun } from "./admin";
+import { handleAdminResend, handleAdminRun } from "./admin";
 import { defaultDeps } from "./deps";
 import { runScheduled } from "./jobs";
 import { errorFields, log } from "./lib/log";
@@ -15,6 +15,9 @@ export default {
     }
     if (request.method === "POST" && pathname === "/admin/run") {
       return handleAdminRun(request, env, defaultDeps());
+    }
+    if (request.method === "POST" && pathname === "/admin/resend") {
+      return handleAdminResend(request, env, defaultDeps());
     }
     return new Response("not found", { status: 404 });
   },

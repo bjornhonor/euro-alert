@@ -7,8 +7,8 @@ export const QUARTER = 63;
 
 /** Níveis da boa época (seção 3.1 do plano): distância da média de 12 meses. */
 export const LEVELS = { boa: -0.03, muito_boa: -0.05, rara: -0.08 } as const;
-/** Saída da boa época (histerese): só termina quando a distância volta acima disso. */
-export const EXIT_LEVEL = -0.01;
+/** Saída da boa época: termina quando a distância volta acima disso (mesmo nível da entrada). */
+export const EXIT_LEVEL = -0.03;
 
 export type Level = keyof typeof LEVELS;
 

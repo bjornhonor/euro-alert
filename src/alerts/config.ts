@@ -4,7 +4,7 @@ import { EXIT_LEVEL, LEVELS } from "../engine/epoch";
 export interface AlertConfig {
   /** Distância da média de 12 meses que abre a época e os níveis seguintes. */
   levels: typeof LEVELS;
-  /** Distância que fecha a época (histerese). */
+  /** Distância que fecha a época. */
   exitLevel: number;
   /** Leituras seguidas (de 15 min) para confirmar abertura, novo nível e fim. */
   confirmReadings: number;

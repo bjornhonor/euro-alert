@@ -43,7 +43,7 @@ describe("alertas no Telegram", () => {
     await processAlerts(env, tg.deps(WED_10H + 15 * 60_000), WED_10H + 15 * 60_000, signal);
 
     expect(tg.sent).toHaveLength(1);
-    expect(String(tg.sent[0]!.text)).toContain("<b>Boa época</b>");
+    expect(String(tg.sent[0]!.text)).toContain("<b>Boa época pra comprar euro</b>");
     const kb = tg.sent[0]!.reply_markup as { inline_keyboard: { callback_data: string }[][] };
     expect(kb.inline_keyboard[0]!.map((b) => b.callback_data)).toEqual([
       expect.stringMatching(/^ai:\d+$/),

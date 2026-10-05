@@ -77,7 +77,8 @@ const FIVE_DAYS_MS = 5 * 86_400_000;
 /**
  * Regras dos alertas (função pura). A boa época abre quando a distância da média de 12 meses
  * fica ≤ −3% por `confirmReadings` leituras seguidas, avisa cada nível mais fundo uma vez
- * (também confirmado) e fecha quando volta a ≥ −1% (histerese). Mais disparada e sazonal.
+ * (também confirmado) e fecha quando volta a ≥ −3%,
+ * também por `confirmReadings` leituras. Mais disparada e sazonal.
  */
 export function evaluate(
   prev: EpochState,

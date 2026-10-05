@@ -1,6 +1,9 @@
 import { getState, setState } from "../db/state";
 import { type Deps } from "../deps";
 import { type Signal } from "../engine/signal";
+import { lastRates } from "../db/rates";
+import { buildSignal } from "../jobs/signals";
+import { type Quote } from "../providers/types";
 import { log } from "../lib/log";
 import { brt, brtDayBounds, isAlertWindow } from "../lib/time";
 import { type FeeModel } from "../providers/wise-fees";
@@ -8,11 +11,8 @@ import { TelegramApi } from "../telegram/api";
 import { alertButtons, alertTitle, type MessageContext, renderAlert } from "../telegram/templates";
 import { type AlertConfig, loadAlertConfig } from "./config";
 import { type EpochState, evaluate, INITIAL_STATE, isFirstBusinessDay, type RuleEvent } from "./rules";
-import { loadScore } from "./scorecard";
 
 export type HoldReason = "dry_run" | "silenciado" | "fora_do_horario" | "limite";
-
-const FIVE_YEARS_MS = 5 * 365.25 * 86_400_000;
 
 /** Envia agora ou segura para o resumo das 8h. */
 export async function holdReason(env: Env, now: number, cfg: AlertConfig): Promise<HoldReason | undefined> {
@@ -94,7 +94,6 @@ export async function processAlerts(env: Env, deps: Deps, now: number, signal: S
     signal,
     today,
     feeModel: await getState<FeeModel>(env.DB, "fee_model"),
-    score: await loadScore(env.DB, now - FIVE_YEARS_MS),
     epochStart:
       state.startTs && state.entryPrice
         ? { date: brt(state.startTs).date, price: state.entryPrice }
@@ -131,4 +130,50 @@ export async function processAlerts(env: Env, deps: Deps, now: number, signal: S
       .run();
   }
   return events;
+}
+
+/**
+ * Reenvia o último alerta (não histórico) com o modelo de mensagem atual e o preço mais recente,
+ * sem registrar um alerta novo. Serve para ver como fica o texto depois de mexer nos modelos.
+ */
+export async function resendLastAlert(
+  env: Env,
+  deps: Deps,
+): Promise<{ id: number; kind: string } | undefined> {
+  const row = await env.DB.prepare(
+    "SELECT id, kind, context FROM alerts WHERE kind != 'sistema' AND json_extract(context, '$.event') IS NOT NULL " +
+      "ORDER BY id DESC LIMIT 1",
+  ).first<{ id: number; kind: string; context: string }>();
+  if (!row) return undefined;
+  const ev = (JSON.parse(row.context) as { event: RuleEvent }).event;
+  const now = deps.clock.now();
+  const quotes: Quote[] = Object.values(await lastRates(env.DB)).map((r) => ({
+    pair: r.pair,
+    mid: r.mid,
+    ts: r.ts,
+    source: r.source as Quote["source"],
+  }));
+  const signal = await buildSignal(env, now, quotes);
+  if (!signal) throw new Error("sem sinal para montar a mensagem");
+  const cfg = await loadAlertConfig(env.DB);
+  const state = (await getState<EpochState>(env.DB, "epoch_state")) ?? INITIAL_STATE;
+  const text = renderAlert(
+    ev,
+    {
+      signal,
+      today: brt(now).date,
+      feeModel: await getState<FeeModel>(env.DB, "fee_model"),
+      epochStart:
+        state.startTs && state.entryPrice
+          ? { date: brt(state.startTs).date, price: state.entryPrice }
+          : undefined,
+      seasonalIndex: await getState(env.DB, "seasonality"),
+    },
+    cfg.levels,
+  );
+  const withButtons = ev.kind !== "sazonal" && ev.kind !== "epoca_fim";
+  await new TelegramApi(env.TELEGRAM_BOT_TOKEN, deps.fetch).sendMessage(env.TELEGRAM_CHAT_ID, text, {
+    replyMarkup: withButtons ? alertButtons(row.id) : undefined,
+  });
+  return { id: row.id, kind: row.kind };
 }

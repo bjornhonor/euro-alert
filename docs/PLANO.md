@@ -36,7 +36,7 @@ O app acompanha o EUR/BRL o tempo todo (com base na Wise), identifica **boas ép
 | Linguagem e infra | TypeScript em Cloudflare Workers (plano grátis), banco D1 (SQLite) |
 | Canal | Bot do Telegram |
 | Cotação | API oficial da Wise com token pessoal. Reservas: endpoint público da Wise e AwesomeAPI |
-| Sinal principal | Boa época: euro 3% ou mais abaixo da média dos últimos 12 meses, com níveis −5% e −8% e saída em −1% (seção 3.1) |
+| Sinal principal | Boa época: euro 3% ou mais abaixo da média dos últimos 12 meses, com níveis −5% e −8% e saída quando volta acima de −3% (seção 3.1) |
 | Contexto do alerta | 12 meses (o gatilho), 5 anos e a história desde 2002 corrigida pela inflação (seção 3.2), mais o custo na Wise |
 | Horário dos alertas | 8h às 22h em dias úteis. O câmbio que a Wise usa funciona 24 horas nos dias úteis (seção 3.4) |
 | Meta de preço | Não tem. As referências são as médias de 12 meses, de 5 anos e da história |
@@ -69,22 +69,22 @@ O app acompanha o EUR/BRL o tempo todo (com base na Wise), identifica **boas ép
 | Muito boa | ≤ −5% | 21% | 10% |
 | Rara | ≤ −8% | 13% | 3% |
 
-**Histerese:** a época começa quando a distância chega a −3% e só termina quando ela volta a −1%. Sem histerese, o sinal liga e desliga o tempo todo: seriam 80 episódios em 24 anos, com mediana de 4 dias cada. Com histerese:
+**Saída:** a época começa quando a distância chega a −3% e termina quando ela volta acima de −3%, sem histerese (decidido em 05/10, antes era −1%). A época passa a marcar só o tempo em que o euro está de fato 3% abaixo da média. O custo é mais liga-desliga:
 
-| | BCE 2002–26 | Wise 2022–26 |
-|---|---:|---:|
-| Épocas por ano | 1,3 | 2,0 |
-| Duração mediana | 29 dias úteis (~1,4 mês) | 20 dias úteis (~1 mês) |
-| Profundidade mediana | −5,0% | −3,9% |
-| Pior profundidade | −19,6% | −11,5% |
+| Saída | Épocas/ano (BCE 2002–26) | Duração mediana (BCE) | Épocas de até 5 dias (BCE) | Reabre em até 10 dias úteis (BCE) | Épocas/ano (Wise 2022–26) | Duração mediana (Wise) |
+|---|---:|---:|---:|---:|---:|---:|
+| −1% (antes) | 1,3 | 29 d.u. | 2 de 31 | 4 | 2,0 | 20 d.u. |
+| −2% | 1,9 | 12 d.u. | 11 de 46 | 15 | 2,5 | 10 d.u. |
+| −2,5% | 2,7 | 6 d.u. | 31 de 63 | 31 | 2,7 | 10 d.u. |
+| **−3% (atual)** | 3,4 | 4 d.u. | 50 de 80 | 48 | 3,7 | 5 d.u. |
 
 **Confirmação:** para abrir ou fechar uma época, a condição precisa se manter em duas leituras seguidas (30 minutos). Isso evita alerta por ruído de uma leitura isolada.
 
 **Por que esses níveis** (decididos em 24/09):
-- **−3%:** o EUR/BRL oscila ~14% ao ano, o que dá ~4% num mês típico. Então −3% é uma queda de tamanho normal, e gera 1 a 2 épocas por ano, com 1 a 1,5 mês cada. É frequente o bastante pra ser útil e raro o bastante pra importar.
-- **−5% e −8%:** separam o comum do raro. Metade das épocas chegou a −5% e um quarto chegou a −8%.
-- **Saída em −1%:** evita o liga-desliga.
-- **Total:** ~3,5 alertas de época por ano (início, níveis e fim).
+- **−3%:** o EUR/BRL oscila ~14% ao ano, o que dá ~4% num mês típico. Então −3% é uma queda de tamanho normal: o euro passa ~28% dos dias abaixo dele. É frequente o bastante pra ser útil e raro o bastante pra importar.
+- **−5% e −8%:** separam o comum do raro. Com saída em −1%, metade das épocas chegou a −5% e um quarto chegou a −8%.
+- **Saída em −3%:** a época só dura enquanto o euro está barato de fato. Se o liga-desliga incomodar, −2% é o meio-termo (tabela acima). O valor fica em `exitLevel` na configuração.
+- **Total:** ~8 alertas de época por ano (início, níveis e fim), contra ~3,5 com saída em −1%.
 - **Ajustes:** os valores ficam na configuração, e a Etapa 5 confirma ou ajusta com walk-forward.
 
 **Alertas gerados:**
@@ -1134,55 +1134,79 @@ Amostras reais de 23/09/2026, resumidas.
 
 Os números abaixo são exemplos.
 
+Os alertas são feitos para ler de relance: título, preço em destaque, uma informação por linha e blocos separados por linha em branco.
+
 **Boa época começou**
 ```
-🟢 Boa época · EUR/BRL 5,8564
-12 meses: 3,3% abaixo da média (6,0543) · mais barato que 82% dos dias
-5 anos: 0,9% acima da média (5,8042) · mais barato que 48% dos dias
-História (desde 2002, corrigida pela inflação): 8,4% acima da média (5,4013)
-Nível: boa · próximos: −5% (5,75) e −8% (5,57)
+🟢 Boa época pra comprar euro
 
-Contexto
-• Média de 12 meses caindo (−1,9% em 3 meses): euro em tendência de queda
-• Preço abaixo das médias de 20 e 50 dias
-• Movimento veio do real (USD/BRL −2,1% em 20 dias)
+R$ 5,8564 por euro
+3,3% abaixo da média de 12 meses
+Mais barato que 82% dos dias do último ano
+
+Nível: boa
+Próximos: −5% (R$ 5,75) · −8% (R$ 5,57)
+
+💳 Na Wise: ~R$ 6,11 por euro, com tarifa e IOF
+
+Para comparar
+• 5 anos: 0,9% acima da média
+• Desde 2002: 8,4% acima (já descontada a inflação)
+
+Fique de olho
+• Euro em tendência de queda
+• Puxado pelo real (USD/BRL −2,1%) em 5 dias
 • Eleição em 11 dias
 
-Histórico: em mercado de lado (2021–26), o preço da boa época ficou ~3% abaixo
-dos 6 meses seguintes; em tendência, o euro às vezes seguiu caindo.
-Custo na Wise: ~R$ 6,11/€ (tarifa + IOF, para R$ 1.000)
-
-🤖 comentário da IA aparece aqui em alguns segundos
-[🤖 Análise completa] [📈 Gráfico] [🔕 24h]
+[🤖 Análise] [📈 Gráfico] [🔕 24h]
 ```
 
 **Boa época ficou melhor**
 ```
-🟢🟢 Boa época ficou melhor · EUR/BRL 5,7400
-12 meses: 5,2% abaixo da média · nível: muito boa
-5 anos: 1,1% abaixo da média · história: 4,5% acima (corrigida pela inflação)
+🟢🟢 Boa época ficou melhor
+
+R$ 5,7400 por euro
+5,2% abaixo da média de 12 meses
+Nível: muito boa
+
 Desde o início (22/09): −2,0%
-[🤖 Análise completa] [📈 Gráfico] [🔕 24h]
+Próximo nível: −8% (R$ 5,57)
+
+💳 Na Wise: ~R$ 5,99 por euro, com tarifa e IOF
+[🤖 Análise] [📈 Gráfico] [🔕 24h]
 ```
 
 **Boa época terminou**
 ```
-⚪ Boa época terminou · EUR/BRL 6,0000
-Voltou para −0,9% da média de 12 meses
-Durou 34 dias úteis · ponto mais baixo 5,7400 (−5,2%) em <data>
+⚪ Boa época terminou
+
+R$ 6,0000 por euro
+Voltou para 0,9% abaixo da média de 12 meses
+
+Como foi
+• Começou em 22/09 a R$ 5,9000
+• Mais baixo: R$ 5,7400 (−5,2%) em <data>
+• Chegou ao nível muito boa
 ```
 
 **Disparada**
 ```
-🔺 Euro disparando · EUR/BRL 6,1200 (+3,4% em 5 dias)
-Movimento veio do real (USD/BRL +3,0%) · 1,1% acima da média de 12 meses
-🤖 comentário da IA aparece aqui em alguns segundos
+🔺 Euro disparando
+
+R$ 6,1200 por euro
++3,4% em 5 dias
+Puxado pelo real (USD/BRL +3,0%)
+1,1% acima da média de 12 meses
 ```
 
 **Sazonal**
 ```
-🗓️ Dezembro começou: nos últimos 24 anos, o mês mais caro do ano pro euro
-(em média 2,1% acima da tendência). Janeiro e fevereiro costumam aliviar.
+🗓️ Dezembro começou
+
+Costuma ser o mês mais caro do ano pro euro
+Em média 2,1% acima da tendência (24 anos)
+
+Janeiro e fevereiro costumam aliviar.
 ```
 
 **Resumo das 8h**

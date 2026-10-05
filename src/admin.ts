@@ -1,3 +1,4 @@
+import { resendLastAlert } from "./alerts/run";
 import { type Deps } from "./deps";
 import { CRONS, type JobName } from "./jobs/crons";
 import { runScheduled } from "./jobs";
@@ -27,5 +28,19 @@ export async function handleAdminRun(request: Request, env: Env, deps: Deps): Pr
     return Response.json({ ok: true, job, ms: Date.now() - started });
   } catch (err) {
     return Response.json({ ok: false, job, ms: Date.now() - started, ...errorFields(err) }, { status: 500 });
+  }
+}
+
+/** POST /admin/resend — reenvia o último alerta com o modelo atual (mesma proteção do /admin/run). */
+export async function handleAdminResend(request: Request, env: Env, deps: Deps): Promise<Response> {
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  if (!env.ADMIN_TOKEN || !safeEqual(token, env.ADMIN_TOKEN)) {
+    return new Response("unauthorized", { status: 401 });
+  }
+  try {
+    const sent = await resendLastAlert(env, deps);
+    return Response.json(sent ? { ok: true, ...sent } : { ok: false, error: "nenhum alerta para reenviar" });
+  } catch (err) {
+    return Response.json({ ok: false, ...errorFields(err) }, { status: 500 });
   }
 }

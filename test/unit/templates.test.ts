@@ -15,7 +15,6 @@ const ctx = {
   signal,
   today: "2026-10-14",
   feeModel: { fixed: 2.18, pct: 0.03975 },
-  score: { epochs: 6, measured: 5, vsNext3m: -0.021, hitRate: 0.8, furtherDrop: -0.014 },
   epochStart: { date: "2026-09-22", price: 5.9 },
 };
 
@@ -29,27 +28,27 @@ describe("formatação", () => {
 });
 
 describe("modelos de mensagem (Apêndice C)", () => {
-  it("boa época começou: três horizontes, nível, contexto, placar e custo", () => {
+  it("boa época começou: preço, nível, Wise, comparação, pontos de atenção", () => {
     const text = renderAlert({ kind: "epoca_inicio", level: "boa" }, ctx, LEVELS);
-    expect(text).toContain("🟢 <b>Boa época</b> · EUR/BRL 5,8564");
-    expect(text).toContain("12 meses: 3,3% abaixo da média");
-    expect(text).toContain("mais barato que 82% dos dias");
-    expect(text).toContain("5 anos: 0,9% acima da média");
-    expect(text).toContain("História (desde 2002, corrigida pela inflação): 8,4% acima da média (5,4013)");
-    expect(text).toContain("Nível: boa · próximos: −5% (");
-    expect(text).toContain("• Média de 12 meses caindo");
-    expect(text).toContain("Eleição (2º turno) em 11 dias");
-    expect(text).toContain("Placar (5 épocas nos últimos 5 anos)");
-    expect(text).toMatch(/Custo na Wise: ~R\$ 6,1\d\/€ \(tarifa \+ IOF, para R\$ 1\.000\)/);
-    expect(text).not.toMatch(/&lt;|&gt;/);
+    expect(text).toContain("🟢 <b>Boa época pra comprar euro</b>\n\n<b>R$ 5,8564</b> por euro");
+    expect(text).toContain("3,3% abaixo da média de 12 meses");
+    expect(text).toContain("Mais barato que 82% dos dias do último ano");
+    expect(text).toContain("Nível: <b>boa</b>\nPróximos: −5% (R$ ");
+    expect(text).toMatch(/💳 Na Wise: ~R\$ 6,1\d por euro, com tarifa e IOF/);
+    expect(text).toContain("<b>Para comparar</b>\n• 5 anos: 0,9% acima da média");
+    expect(text).toContain("• Desde 2002: 8,4% acima (já descontada a inflação)");
+    expect(text).toContain("<b>Fique de olho</b>\n• Euro em tendência de queda");
+    expect(text).toContain("• Eleição (2º turno) em 11 dias");
+    expect(text).not.toContain("Épocas anteriores");
+    expect(text).not.toMatch(/&lt;|&gt;|\n\n\n/);
   });
 
   it("ficou melhor: nível, desde o início e próximo nível", () => {
     const text = renderAlert({ kind: "epoca_nivel", level: "muito_boa", from: "boa" }, ctx, LEVELS);
     expect(text).toContain("🟢🟢 <b>Boa época ficou melhor</b>");
-    expect(text).toContain("nível: muito boa");
+    expect(text).toContain("Nível: <b>muito boa</b>");
     expect(text).toContain("Desde o início (22/09): −0,7%");
-    expect(text).toContain("Nível seguinte: −8%");
+    expect(text).toContain("Próximo nível: −8% (R$ ");
   });
 
   it("terminou: resumo do episódio", () => {
@@ -67,6 +66,7 @@ describe("modelos de mensagem (Apêndice C)", () => {
       LEVELS,
     );
     expect(text).toContain("⚪ <b>Boa época terminou</b>");
-    expect(text).toContain("ponto mais baixo 5,5700 (−7,6%) em 05/10");
+    expect(text).toContain("<b>Como foi</b>\n• Começou em 22/09 a R$ 5,9000");
+    expect(text).toContain("• Mais baixo: R$ 5,5700 (−7,6%) em 05/10");
   });
 });

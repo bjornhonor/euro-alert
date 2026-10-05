@@ -18,7 +18,7 @@ export interface HistoricalEpoch {
 
 /**
  * Épocas históricas a partir dos fechamentos diários, com a mesma regra dos alertas
- * (abre em −3% da média de 250 dias úteis, fecha em −1%), sem a confirmação de 2 leituras
+ * (abre em −3% da média de 250 dias úteis e fecha quando volta acima de −3%), sem a confirmação de 2 leituras
  * (que só faz sentido de 15 em 15 minutos). Igual a `episodes()` em research/analise_v8.py.
  */
 export function historicalEpochs(dates: readonly string[], prices: readonly number[]): HistoricalEpoch[] {

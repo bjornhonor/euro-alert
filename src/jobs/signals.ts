@@ -25,6 +25,18 @@ export async function computeAndStoreSignal(
   now: number,
   quotes: readonly Quote[],
 ): Promise<Signal | undefined> {
+  const signal = await buildSignal(env, now, quotes);
+  if (!signal || !signal.real) return signal;
+  await storeSignal(env, now, signal);
+  return signal;
+}
+
+/** Calcula os indicadores com o preço ao vivo, sem gravar. */
+export async function buildSignal(
+  env: Env,
+  now: number,
+  quotes: readonly Quote[],
+): Promise<Signal | undefined> {
   const live = new Map(quotes.map((q) => [q.pair, q.mid]));
   const eur = live.get("EURBRL");
   if (eur === undefined) return undefined;
@@ -57,7 +69,11 @@ export async function computeAndStoreSignal(
     eurusd: await withLive("EURUSD"),
     usdbrl: await withLive("USDBRL"),
   });
-  if (!signal || !signal.real) return signal;
+  return signal;
+}
+
+async function storeSignal(env: Env, now: number, signal: Signal): Promise<void> {
+  if (!signal.real) return;
 
   const { epoch: e, score: s } = signal;
   await env.DB.prepare(
@@ -91,7 +107,6 @@ export async function computeAndStoreSignal(
       }),
     )
     .run();
-  return signal;
 }
 
 /**

@@ -52,8 +52,8 @@ describe("regras da boa época", () => {
     expect(state.levelAlerted).toBe("muito_boa");
   });
 
-  it("oscilar entre −3% e −1% não gera alerta (histerese)", () => {
-    const { events } = run([-0.031, -0.031, -0.02, -0.015, -0.028, -0.012, -0.03]);
+  it("oscilar abaixo de −3% não fecha a época", () => {
+    const { events } = run([-0.031, -0.031, -0.035, -0.032, -0.031, -0.04, -0.0301]);
     expect(events.map((e) => e.ev.kind)).toEqual(["epoca_inicio"]);
   });
 
@@ -66,16 +66,16 @@ describe("regras da boa época", () => {
     ]);
   });
 
-  it("fecha quando volta a −1% por 2 leituras, com o resumo do episódio", () => {
-    const { events, state } = run([-0.031, -0.031, -0.06, -0.009, -0.005]);
+  it("fecha quando volta a −3% por 2 leituras, com o resumo do episódio", () => {
+    const { events, state } = run([-0.031, -0.031, -0.06, -0.029, -0.025]);
     const fim = events.find((e) => e.ev.kind === "epoca_fim")!;
     expect(fim.i).toBe(4);
     expect(fim.ev).toMatchObject({ kind: "epoca_fim", minDist: -0.06, minPrice: 6 * (1 - 0.06) });
     expect(state.active).toBe(false);
   });
 
-  it("uma leitura isolada acima de −1% não fecha", () => {
-    expect(run([-0.031, -0.031, -0.009, -0.02, -0.009]).state.active).toBe(true);
+  it("uma leitura isolada acima de −3% não fecha", () => {
+    expect(run([-0.031, -0.031, -0.029, -0.031, -0.029]).state.active).toBe(true);
   });
 });
 
@@ -100,11 +100,11 @@ describe("disparada e sazonal", () => {
 });
 
 describe("épocas históricas", () => {
-  it("reproduz a pesquisa: 31 épocas no BCE desde 2002, 15 chegam a −5% e 7 a −8%", () => {
+  it("reproduz a pesquisa: 80 épocas no BCE desde 2002, 18 chegam a −5% e 8 a −8%", () => {
     const eps = historicalEpochs(golden.dates, golden.prices);
-    expect(eps).toHaveLength(31);
-    expect(eps.filter((e) => e.maxLevel !== "boa")).toHaveLength(15);
-    expect(eps.filter((e) => e.maxLevel === "rara")).toHaveLength(7);
+    expect(eps).toHaveLength(80);
+    expect(eps.filter((e) => e.maxLevel !== "boa")).toHaveLength(18);
+    expect(eps.filter((e) => e.maxLevel === "rara")).toHaveLength(8);
     expect(eps.at(-1)).toMatchObject({ start: "2026-09-22", end: null });
   });
 });

@@ -1,6 +1,6 @@
 import events from "../../config/events.json";
 import { type Signal } from "../engine/signal";
-import { effectiveBrlPerEur, type FeeModel, REFERENCE_AMOUNT } from "../providers/wise-fees";
+import { effectiveBrlPerEur, type FeeModel } from "../providers/wise-fees";
 import { aboveBelow, MONTH_NAME, num, pct } from "./format";
 
 export interface UpcomingEvent {
@@ -17,35 +17,20 @@ export function upcomingEvents(today: string, horizon = 14): UpcomingEvent[] {
     .filter((e) => e.days >= 0 && e.days <= horizon);
 }
 
-/** Linhas de contexto do alerta (tudo derivado do preço do euro, mais calendário). */
+/**
+ * Pontos de atenção do alerta, curtos (tudo derivado do preço do euro, mais calendário).
+ * As médias de 20 e 50 dias ficam de fora: são detalhe técnico, a IA comenta se importar.
+ */
 export function contextLines(signal: Signal, today: string): string[] {
   const e = signal.epoch;
   const lines: string[] = [];
-  lines.push(
-    `Média de 12 meses ${e.slope250 < 0 ? "caindo" : "subindo"} (${pct(e.slope250, 1, true)} em 3 meses)` +
-      (e.slope250 < 0 ? ": euro em tendência de queda" : ""),
-  );
-  const above = [e.aboveSma20, e.aboveSma50];
-  lines.push(
-    above.every(Boolean)
-      ? "Preço acima das médias de 20 e 50 dias"
-      : above.some(Boolean)
-        ? `Preço ${e.aboveSma20 ? "acima" : "abaixo"} da média de 20 dias e ${e.aboveSma50 ? "acima" : "abaixo"} da de 50`
-        : "Preço abaixo das médias de 20 e 50 dias",
-  );
+  lines.push(e.slope250 < 0 ? "Euro em tendência de queda" : "Euro em tendência de alta");
   const d = signal.decomposition.find((x) => x.days === 5) ?? signal.decomposition[0];
-  if (d) {
-    const fromReal = Math.abs(d.usdbrl) >= Math.abs(d.eurusd);
-    lines.push(
-      fromReal
-        ? `Movimento veio do real (USD/BRL ${pct(d.usdbrl, 1, true)} em ${d.days} ${d.days === 1 ? "dia" : "dias"})`
-        : `Movimento veio do euro lá fora (EUR/USD ${pct(d.eurusd, 1, true)} em ${d.days} ${d.days === 1 ? "dia" : "dias"})`,
-    );
-  }
+  if (d) lines.push(`${originOf(d)} em ${d.days} ${d.days === 1 ? "dia" : "dias"}`);
   const s = signal.seasonal;
   if (s && Math.abs(s.mean) >= 0.3) {
     lines.push(
-      `${capitalize(MONTH_NAME[s.month]!)} costuma ficar ${num(Math.abs(s.mean), 1)}% ${s.mean < 0 ? "abaixo" : "acima"} da tendência (${s.n} anos)`,
+      `${capitalize(MONTH_NAME[s.month]!)} costuma ficar ${num(Math.abs(s.mean), 1)}% ${s.mean < 0 ? "abaixo" : "acima"} da tendência`,
     );
   }
   for (const ev of upcomingEvents(today)) {
@@ -54,24 +39,23 @@ export function contextLines(signal: Signal, today: string): string[] {
   return lines;
 }
 
-/** "Custo na Wise: ~R$ 5,82/€ (tarifa + IOF, para R$ 1.000)". */
-export function wiseCostLine(model: FeeModel | undefined, price: number): string | undefined {
-  if (!model) return undefined;
-  return `Custo na Wise: ~R$ ${num(effectiveBrlPerEur(model, price))}/€ (tarifa + IOF, para R$ ${REFERENCE_AMOUNT.toLocaleString("pt-BR")})`;
+/** "Puxado pelo real (USD/BRL −2,1%)" ou "Puxado pelo euro lá fora (EUR/USD +1,0%)". */
+export function originOf(d: { usdbrl: number; eurusd: number }): string {
+  return Math.abs(d.usdbrl) >= Math.abs(d.eurusd)
+    ? `Puxado pelo real (USD/BRL ${pct(d.usdbrl, 1, true)})`
+    : `Puxado pelo euro lá fora (EUR/USD ${pct(d.eurusd, 1, true)})`;
 }
 
-/** Os três horizontes, uma linha cada. */
-export function horizonLines(signal: Signal): string[] {
-  const e = signal.epoch;
-  const lines = [
-    `12 meses: ${aboveBelow(e.dist250)} da média (${num(e.sma250, 4)}) · mais barato que ${pct(e.pct250, 0)} dos dias`,
-    `5 anos: ${aboveBelow(e.dist1260)} da média (${num(e.sma1260, 4)}) · mais barato que ${pct(e.pct1260, 0)} dos dias`,
-  ];
-  if (signal.real) {
-    lines.push(
-      `História (desde 2002, corrigida pela inflação): ${aboveBelow(signal.real.dist)} da média (${num(signal.real.mean, 4)})`,
-    );
-  }
+/** "💳 Na Wise: ~R$ 6,11 por euro, com tarifa e IOF" (custo calculado para R$ 1.000). */
+export function wiseCostLine(model: FeeModel | undefined, price: number): string | undefined {
+  if (!model) return undefined;
+  return `💳 Na Wise: ~R$ ${num(effectiveBrlPerEur(model, price))} por euro, com tarifa e IOF`;
+}
+
+/** Os horizontes longos, para comparar com o de 12 meses (que é o gatilho). */
+export function comparisonLines(signal: Signal): string[] {
+  const lines = [`5 anos: ${aboveBelow(signal.epoch.dist1260)} da média`];
+  if (signal.real) lines.push(`Desde 2002: ${aboveBelow(signal.real.dist)} (já descontada a inflação)`);
   return lines;
 }
 

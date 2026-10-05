@@ -4,11 +4,12 @@
  *   npm run job -- tick            # na Cloudflare
  *   npm run job -- maintenance
  *   npm run job -- tick --local    # no `npm run dev` (http://localhost:8787)
+ *   npm run job -- resend          # reenvia o último alerta com o modelo de mensagem atual
  *
  * Usa o ADMIN_TOKEN do .dev.vars (o mesmo valor cadastrado com `wrangler secret put ADMIN_TOKEN`).
  */
 const WORKER_URL = "https://euro-alert.brunocarrarabpc.workers.dev";
-const JOBS = ["tick", "summary", "weekly", "maintenance"];
+const JOBS = ["tick", "summary", "weekly", "maintenance", "resend"];
 
 const args = process.argv.slice(2);
 const job = args.find((a) => !a.startsWith("--"));
@@ -24,7 +25,8 @@ if (!token) {
   process.exit(1);
 }
 
-const res = await fetch(`${base}/admin/run?job=${job}`, {
+const path = job === "resend" ? "/admin/resend" : `/admin/run?job=${job}`;
+const res = await fetch(`${base}${path}`, {
   method: "POST",
   headers: { authorization: `Bearer ${token}` },
 });
