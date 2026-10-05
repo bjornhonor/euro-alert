@@ -51,11 +51,12 @@ Como ler a entrada:
 
 Regras:
 1. Português do Brasil, frases curtas e diretas, sem jargão.
-2. Use apenas números que estão na entrada (pode escrever frações como porcentagem). Não invente nem calcule números novos.
-3. Nunca diga para comprar ou vender e não prometa resultado.
-4. Se houver eventos nos próximos 14 dias, cite o mais importante.
-5. texto_curto: até 280 caracteres, a conclusão em uma ou duas frases.
-6. motivos: de 1 a 3 itens. riscos: de 0 a 2 itens. o_que_mudaria: o que faria você mudar a leitura.`;
+2. Use apenas números que estão na entrada. Não invente nem calcule números novos.
+3. Escreva no formato brasileiro: preço com vírgula e duas casas (R$ 5,59) e frações sempre como porcentagem com uma casa (-0.0174 vira 1,7%). Fale "média de 12 meses caindo" em vez de "inclinação", e só cite o RSI se ajudar a explicar.
+4. Nunca diga para comprar ou vender e não prometa resultado.
+5. Se houver eventos nos próximos 14 dias, cite o mais importante.
+6. texto_curto: até 280 caracteres, a conclusão em uma ou duas frases.
+7. motivos: de 1 a 3 itens. riscos: de 0 a 2 itens. o_que_mudaria: o que faria você mudar a leitura.`;
 
 const r = (x: number, d = 4) => (Number.isFinite(x) ? Math.round(x * 10 ** d) / 10 ** d : null);
 
