@@ -1,0 +1,55 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "euro-alert",
+  // Conta pessoal da Cloudflare. Fixa aqui para nunca publicar em outra conta logada na máquina.
+  "account_id": "31fcc73b7992a1b56731603701c9149c",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-25",
+  "observability": { "enabled": true },
+  // Endereço público: https://euro-alert.brunocarrarabpc.workers.dev (o webhook do Telegram aponta pra cá)
+  "workers_dev": true,
+  "preview_urls": false,
+
+  // Horários em UTC. Brasília = UTC−3 o ano todo. Dias da semana por nome (MON-FRI), nunca por número.
+  // Manter igual a CRONS em src/jobs/crons.ts.
+  "triggers": {
+    "crons": ["*/15 * * * MON-FRI", "0 11 * * MON-FRI", "0 21 * * FRI", "0 6 * * *"],
+  },
+
+  // Config que não é secreta. Os segredos ficam em .dev.vars (local) e `wrangler secret put` (produção).
+  "vars": {
+    "ENVIRONMENT": "production",
+    "ALERT_START_HOUR": "8",
+    "ALERT_END_HOUR": "22",
+  },
+
+  // Banco na conta pessoal (criado em 05/10/2026).
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "euro-alert",
+      "database_id": "7e857006-089b-4f46-b775-87bcde32d740",
+      "migrations_dir": "migrations",
+    },
+  ],
+
+  "env": {
+    // Bot e banco separados para testar sem mexer no de verdade: `npm run deploy:staging`
+    "staging": {
+      "name": "euro-alert-staging",
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "ALERT_START_HOUR": "8",
+        "ALERT_END_HOUR": "22",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "euro-alert-staging",
+          "database_id": "00000000-0000-0000-0000-000000000001",
+          "migrations_dir": "migrations",
+        },
+      ],
+    },
+  },
+}

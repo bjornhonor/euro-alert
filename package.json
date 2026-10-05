@@ -1,0 +1,45 @@
+{
+  "name": "euro-alert",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Alertas de boas épocas para comprar euro (EUR/BRL), em Cloudflare Workers + Telegram",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test && tsc --noEmit -p scripts",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "cf-typegen": "wrangler types",
+    "db:migrate:local": "wrangler d1 migrations apply euro-alert --local",
+    "db:migrate:remote": "wrangler d1 migrations apply euro-alert --remote",
+    "set-webhook": "node --env-file=.dev.vars scripts/set-webhook.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.2.8",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.6",
+    "@vitest/runner": "~4.1.11",
+    "@vitest/snapshot": "~4.1.11",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.9",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "~4.1.11",
+    "wrangler": "^4.141.0"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "workerd@1.20260925.1": true
+  }
+}
