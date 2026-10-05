@@ -13,7 +13,7 @@ import { maintenance } from "../../src/jobs/maintenance";
 import { tick } from "../../src/jobs/tick";
 import { fixedClock } from "../../src/lib/time";
 
-type Route = { match: RegExp; respond: () => Response | Promise<Response> };
+type Route = { match: RegExp; respond: (url: string) => Response | Promise<Response> };
 
 /** Rede simulada: cada URL conhecida devolve uma resposta; o resto responde 404. */
 function network(routes: Route[]) {
@@ -28,17 +28,21 @@ function network(routes: Route[]) {
     }
     const route = routes.find((r) => r.match.test(url));
     if (!route) return new Response("fora do ar", { status: 404 }); // 404 não tem retry: teste rápido
-    return route.respond();
+    return route.respond(url);
   };
   return { fetch, calls, telegram };
 }
 
 // Segunda 05/10/2026, 10h de Brasília (13h UTC): mercado aberto, dentro da janela de alertas
 const MON_10H = Date.parse("2026-10-05T13:00:00Z");
+/** Wise pública: EUR/BRL no valor pedido; USD/BRL e EUR/USD fixos. Cada par é um pedido. */
 const wiseLive =
-  (value: number, time = MON_10H) =>
-  () =>
-    Response.json([{ source: "EUR", target: "BRL", value, time }]);
+  (eurBrl: number, time = MON_10H) =>
+  (url: string) => {
+    const [, source, target] = /source=(\w+)&target=(\w+)/.exec(url)!;
+    const value = { EURBRL: eurBrl, USDBRL: 4.99, EURUSD: 1.122 }[`${source}${target}`];
+    return Response.json([{ source, target, value, time }]);
+  };
 const awesomeAt = (time: number) => () =>
   Response.json({
     ...awesome,
@@ -64,7 +68,7 @@ beforeEach(async () => {
 });
 
 describe("tick: coleta a cada 15 min", () => {
-  it("grava EUR/BRL da Wise e os outros pares da AwesomeAPI no slot de 15 min", async () => {
+  it("grava os três pares da Wise no slot de 15 min", async () => {
     const net = network([
       { match: /wise\.com\/rates/, respond: wiseLive(5.5993, MON_10H - 60_000) },
       { match: /awesomeapi/, respond: awesomeAt(MON_10H) },
@@ -75,7 +79,23 @@ describe("tick: coleta a cada 15 min", () => {
     expect(rows).toHaveLength(3);
     expect(rows.every((r) => r.ts === MON_10H)).toBe(true);
     expect(rows.find((r) => r.pair === "EURBRL")).toMatchObject({ mid: 5.5993, source: "wise-public" });
+    expect(rows.every((r) => r.source === "wise-public")).toBe(true);
+    expect(net.calls.some((u) => u.includes("awesomeapi"))).toBe(false);
     expect(net.telegram).toHaveLength(0);
+  });
+
+  it("par que falhar na Wise vem da AwesomeAPI", async () => {
+    const net = network([
+      { match: /wise\.com\/rates.*source=EUR&target=BRL/, respond: wiseLive(5.5993, MON_10H) },
+      { match: /awesomeapi/, respond: awesomeAt(MON_10H) },
+    ]);
+    await tick(env, { clock: fixedClock(MON_10H), fetch: net.fetch });
+    const rows = await rates();
+    expect(rows.map((r) => `${r.pair}:${r.source}`).sort()).toEqual([
+      "EURBRL:wise-public",
+      "EURUSD:awesomeapi",
+      "USDBRL:awesomeapi",
+    ]);
   });
 
   it("vigia: avisa uma vez quando a coleta para e avisa quando volta", async () => {

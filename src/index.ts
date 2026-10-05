@@ -1,3 +1,4 @@
+import { handleAdminRun } from "./admin";
 import { defaultDeps } from "./deps";
 import { runScheduled } from "./jobs";
 import { errorFields, log } from "./lib/log";
@@ -11,6 +12,9 @@ export default {
     }
     if (request.method === "POST" && pathname === "/telegram/webhook") {
       return handleWebhook(request, env, defaultDeps());
+    }
+    if (request.method === "POST" && pathname === "/admin/run") {
+      return handleAdminRun(request, env, defaultDeps());
     }
     return new Response("not found", { status: 404 });
   },

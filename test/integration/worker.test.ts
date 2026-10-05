@@ -118,3 +118,28 @@ describe("crons", () => {
     await expect(runCron("1 2 3 4 5")).rejects.toThrow(/cron desconhecido/);
   });
 });
+
+describe("disparo manual (/admin/run)", () => {
+  const run = (job: string, token = "test-admin") =>
+    call(
+      new Request(`https://euro-alert.test/admin/run?job=${job}`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    );
+
+  it("recusa sem o token certo", async () => {
+    expect((await run("tick", "errado")).status).toBe(401);
+  });
+
+  it("recusa job desconhecido", async () => {
+    expect((await run("apagar-tudo")).status).toBe(400);
+  });
+
+  it("roda o job na hora", async () => {
+    const res = await run("tick");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, job: "tick" });
+    expect(await getState<number>(env.DB, "last_tick")).toBeTypeOf("number");
+  });
+});

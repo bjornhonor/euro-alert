@@ -38,15 +38,24 @@ export function parseWiseLive(points: WisePoint[], pair: Pair): Quote | undefine
   return { pair, mid: last.value, ts: last.time, source: "wise-public" };
 }
 
-/** Endpoint público da Wise (sem token). Instável: o retry fica no http(). */
+/**
+ * Endpoint público da Wise (sem token), um pedido por par, em paralelo. Instável: o retry
+ * fica no http(); um par que falhar não derruba os outros. Só lança erro se todos falharem.
+ */
 export function wisePublicProvider(fetchImpl: FetchFn): RateProvider {
   return {
     name: "wise-public",
-    pairs: ["EURBRL"],
+    pairs: ["EURBRL", "USDBRL", "EURUSD"],
     async latest(pairs) {
-      if (!pairs.includes("EURBRL")) return [];
-      const q = parseWiseLive(await fetchWiseHistory(fetchImpl, "EUR", "BRL", "live"), "EURBRL");
-      return q ? [q] : [];
+      const settled = await Promise.allSettled(
+        pairs.map(async (pair) =>
+          parseWiseLive(await fetchWiseHistory(fetchImpl, pair.slice(0, 3), pair.slice(3), "live"), pair),
+        ),
+      );
+      const quotes = settled.flatMap((r) => (r.status === "fulfilled" && r.value ? [r.value] : []));
+      const firstError = settled.find((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (quotes.length === 0 && firstError) throw firstError.reason;
+      return quotes;
     },
   };
 }

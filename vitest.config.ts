@@ -14,6 +14,7 @@ export default defineConfig(async () => {
             TELEGRAM_BOT_TOKEN: "test-token",
             TELEGRAM_WEBHOOK_SECRET: "test-secret",
             TELEGRAM_CHAT_ID: "42",
+            ADMIN_TOKEN: "test-admin",
           },
         },
       }),

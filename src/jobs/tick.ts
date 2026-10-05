@@ -21,7 +21,10 @@ interface Incident {
   reason: string;
 }
 
-/** Ordem de preferência para o EUR/BRL: Wise com token, Wise pública, AwesomeAPI. */
+/**
+ * Ordem de preferência: Wise com token (só EUR/BRL), Wise pública (os três pares) e AwesomeAPI
+ * de reserva (em 05/10/2026 ela falhou nos pedidos vindos da Cloudflare; funciona local).
+ */
 export function buildProviders(env: Env, deps: Deps): RateProvider[] {
   const providers: RateProvider[] = [];
   if (env.WISE_API_TOKEN) providers.push(wiseOfficialProvider(env.WISE_API_TOKEN, deps.fetch));

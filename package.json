@@ -20,7 +20,8 @@
     "db:migrate:local": "wrangler d1 migrations apply euro-alert --local",
     "db:migrate:remote": "wrangler d1 migrations apply euro-alert --remote",
     "set-webhook": "node --env-file=.dev.vars scripts/set-webhook.ts",
-    "backfill": "node scripts/backfill.ts"
+    "backfill": "node scripts/backfill.ts",
+    "job": "node --env-file=.dev.vars scripts/run-job.ts"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.2.8",

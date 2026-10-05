@@ -1,4 +1,5 @@
 import { type Deps } from "../deps";
+import { safeEqual } from "../lib/crypto";
 import { errorFields, log } from "../lib/log";
 import { TelegramApi } from "./api";
 
@@ -9,16 +10,6 @@ interface Update {
 }
 
 export const SECRET_HEADER = "X-Telegram-Bot-Api-Secret-Token";
-
-/** Comparação em tempo constante para o segredo do webhook. */
-function safeEqual(a: string, b: string): boolean {
-  const x = new TextEncoder().encode(a);
-  const y = new TextEncoder().encode(b);
-  if (x.length !== y.length) return false;
-  let diff = 0;
-  for (let i = 0; i < x.length; i++) diff |= x[i]! ^ y[i]!;
-  return diff === 0;
-}
 
 function chatIdOf(update: Update): number | undefined {
   return update.message?.chat.id ?? update.callback_query?.message?.chat.id ?? update.callback_query?.from.id;
