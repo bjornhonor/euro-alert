@@ -871,13 +871,15 @@ Tamanho: P (≤ 1 dia de trabalho) · M (2–3 dias) · G (4 dias ou mais).
 
 ### Etapa 7: IA do alerta · M
 
-- [ ] **7.1** `ai/llm.ts`: interface, cadeia de reserva, timeout, nova tentativa em 429/5xx, disjuntor e registro em `ai_calls`.
-- [ ] **7.2** Adaptadores compatíveis com OpenAI (Groq, Cerebras, OpenRouter) e adaptador do Gemini.
-- [ ] **7.3** `alert-analyst.ts`: monta a entrada (seção 9.2), prompt, schema zod e `response_format` com json_schema.
-- [ ] **7.4** O alerta sai na hora e o comentário entra depois com `editMessageText`.
-- [ ] **7.5** `/analise` sob demanda.
-- [ ] **7.6** Grava a leitura em `predictions`.
-- [ ] **7.7 Conjunto de avaliação:** 20 situações históricas em fixtures, incluindo épocas que viraram desconto e épocas que viraram tendência. Confere schema, idioma, tamanho e se todo número do texto existe na entrada.
+**Feito em 05/10/2026.** 131 testes. Avaliação com 20 inícios de época reais (`npm run ai-eval`): 18 de 20 passaram em formato, idioma, tamanho e números (as falhas: o modelo não gerou o JSON uma vez e citou "50", hoje aceito como referência técnica). A leitura bateu com os 3 meses seguintes em 7 de 14 casos: cara ou coroa, como esperado, por isso o placar da IA mede isso ao vivo. A reserva hoje é só o Groq `gpt-oss-20b`; Cerebras e OpenRouter ficam para quando precisar, e o Gemini entra na Etapa 8.
+
+- [x] **7.1** `ai/llm.ts`: interface, cadeia de reserva, timeout, nova tentativa em 429/5xx, disjuntor e registro em `ai_calls`.
+- [x] **7.2** Adaptadores compatíveis com OpenAI (Groq, Cerebras, OpenRouter) e adaptador do Gemini.
+- [x] **7.3** `alert-analyst.ts`: monta a entrada (seção 9.2), prompt, schema zod e `response_format` com json_schema.
+- [x] **7.4** O alerta sai na hora e o comentário entra depois com `editMessageText`.
+- [x] **7.5** `/analise` sob demanda.
+- [x] **7.6** Grava a leitura em `predictions`.
+- [x] **7.7 Conjunto de avaliação:** 20 situações históricas em fixtures, incluindo épocas que viraram desconto e épocas que viraram tendência. Confere schema, idioma, tamanho e se todo número do texto existe na entrada.
 
 **Pronto quando:** ≥ 90% dos alertas recebem comentário em até 30 s, ≥ 98% das respostas passam no schema e a reserva funciona com a chave do Groq inválida.
 

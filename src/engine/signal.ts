@@ -26,6 +26,8 @@ export interface Signal {
   seasonal?: SignalInput["seasonal"];
   projection: Band[];
   decomposition: Decomposition[];
+  /** Últimos 60 preços (fechamentos + ao vivo), para a IA ver o desenho recente. */
+  recent: number[];
 }
 
 /** Junta todos os indicadores do momento (função pura). */
@@ -44,5 +46,6 @@ export function computeSignal(input: SignalInput): Signal | undefined {
     seasonal: input.seasonal,
     projection: [5, 21].map((d) => projectionBand(input.live, score.sd60, d)),
     decomposition,
+    recent: prices.slice(-60),
   };
 }

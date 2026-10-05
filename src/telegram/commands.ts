@@ -1,6 +1,8 @@
 import { type AlertConfig, loadAlertConfig } from "../alerts/config";
 import { type EpochState } from "../alerts/rules";
 import { loadScore } from "../alerts/scorecard";
+import { type Analysis, fullAnalysis } from "../ai/alert-analyst";
+import { analyze } from "../ai/run";
 import { getState, setState } from "../db/state";
 import { type Deps } from "../deps";
 import { YEAR } from "../engine/epoch";
@@ -195,12 +197,44 @@ export async function handleCommand(text: string, env: Env, deps: Deps): Promise
       return void (await send(await statusText(env, now)));
 
     case "/analise":
+      return void (await send(await onDemandAnalysis(env, deps)));
     case "/macro":
-      return void (await send("🤖 Os comentários da IA chegam na próxima etapa."));
+      return void (await send("🌍 O resumo macro com notícias chega na próxima etapa."));
 
     default:
       return void (await send("Não conheço esse comando. /ajuda mostra a lista."));
   }
+}
+
+/** Limite do /analise: uma vez a cada 2 minutos (a cota grátis da IA é por minuto e por dia). */
+const ON_DEMAND_INTERVAL_MS = 2 * 60 * 1000;
+
+async function onDemandAnalysis(env: Env, deps: Deps): Promise<string> {
+  const now = deps.clock.now();
+  const last = await getState<number>(env.DB, "ai_on_demand_ts");
+  if (last && now - last < ON_DEMAND_INTERVAL_MS) {
+    return `⏳ Espere ${Math.ceil((ON_DEMAND_INTERVAL_MS - (now - last)) / 1000)} s para pedir outra análise.`;
+  }
+  await setState(env.DB, "ai_on_demand_ts", now, now);
+  const { signal } = await latestSignal(env, now);
+  if (!signal) return "Ainda sem dados suficientes para analisar.";
+  const a = await analyze(env, deps, { kind: "agora", level: signal.epoch.level, signal, task: "analise" });
+  return a
+    ? fullAnalysis(a, "Análise de agora")
+    : "🤖 A IA não respondeu agora. Tente de novo em alguns minutos.";
+}
+
+/** Botão 🤖 de um alerta: a análise guardada, ou uma nova se ainda não houver. */
+export async function alertAnalysis(env: Env, deps: Deps, alertId: number): Promise<string> {
+  const row = await env.DB.prepare("SELECT kind, level, ai_comment FROM alerts WHERE id = ?")
+    .bind(alertId)
+    .first<{ kind: string; level: string | null; ai_comment: string | null }>();
+  if (!row) return "Não achei esse alerta.";
+  if (row.ai_comment) return fullAnalysis(JSON.parse(row.ai_comment) as Analysis);
+  const { signal } = await latestSignal(env, deps.clock.now());
+  if (!signal) return "Ainda sem dados suficientes para analisar.";
+  const a = await analyze(env, deps, { kind: row.kind, level: row.level, signal, alertId });
+  return a ? fullAnalysis(a) : "🤖 A IA não respondeu agora. Tente de novo em alguns minutos.";
 }
 
 async function statusText(env: Env, now: number): Promise<string> {

@@ -171,7 +171,7 @@ export const HELP = esc([
   "/retomar · volta a avisar",
   "/alertas · liga e desliga os alertas opcionais",
   "/status · saúde do sistema",
-  "/analise · comentário da IA (em breve)",
+  "/analise · leitura da IA sobre o momento do euro",
   "/ajuda · esta lista",
 ]);
 

@@ -15,6 +15,7 @@ export default defineConfig(async () => {
             TELEGRAM_WEBHOOK_SECRET: "test-secret",
             TELEGRAM_CHAT_ID: "42",
             ADMIN_TOKEN: "test-admin",
+            GROQ_API_KEY: "", // sem IA por padrão (o .dev.vars tem a chave real); os testes da IA ligam
           },
         },
       }),

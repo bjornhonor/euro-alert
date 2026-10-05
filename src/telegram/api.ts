@@ -39,6 +39,17 @@ export class TelegramApi {
     return data.result as T;
   }
 
+  editMessageText(chatId: string, messageId: number, html: string, replyMarkup?: unknown): Promise<unknown> {
+    return this.call("editMessageText", {
+      chat_id: chatId,
+      message_id: messageId,
+      text: html,
+      parse_mode: "HTML",
+      link_preview_options: { is_disabled: true },
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+    });
+  }
+
   sendPhoto(chatId: string, photoUrl: string, captionHtml: string): Promise<TelegramMessage> {
     return this.call<TelegramMessage>("sendPhoto", {
       chat_id: chatId,

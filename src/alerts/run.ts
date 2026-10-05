@@ -2,7 +2,9 @@ import { getState, setState } from "../db/state";
 import { type Deps } from "../deps";
 import { type Signal } from "../engine/signal";
 import { latestSignal } from "../jobs/signals";
-import { log } from "../lib/log";
+import { errorFields, log } from "../lib/log";
+import { commentBlock } from "../ai/alert-analyst";
+import { analyze } from "../ai/run";
 import { brt, brtDayBounds, isAlertWindow } from "../lib/time";
 import { type FeeModel } from "../providers/wise-fees";
 import { TelegramApi } from "../telegram/api";
@@ -126,6 +128,28 @@ export async function processAlerts(env: Env, deps: Deps, now: number, signal: S
     await env.DB.prepare("UPDATE alerts SET delivered = 1, tg_message_id = ? WHERE id = ?")
       .bind(msg.message_id, id)
       .run();
+
+    // o alerta já saiu; a leitura da IA entra alguns segundos depois, editando a mensagem
+    if (ev.kind === "epoca_inicio" || ev.kind === "epoca_nivel" || ev.kind === "disparada") {
+      try {
+        const a = await analyze(env, deps, {
+          kind: ev.kind,
+          level: "level" in ev ? ev.level : null,
+          signal,
+          alertId: id,
+        });
+        if (a) {
+          await api.editMessageText(
+            env.TELEGRAM_CHAT_ID,
+            msg.message_id,
+            text + commentBlock(a),
+            alertButtons(id),
+          );
+        }
+      } catch (err) {
+        log("error", "ia: comentário do alerta falhou", { id, ...errorFields(err) });
+      }
+    }
   }
   return events;
 }
@@ -137,7 +161,7 @@ export async function processAlerts(env: Env, deps: Deps, now: number, signal: S
 export async function resendLastAlert(
   env: Env,
   deps: Deps,
-): Promise<{ id: number; kind: string } | undefined> {
+): Promise<{ id: number; kind: string; ai?: boolean } | undefined> {
   const row = await env.DB.prepare(
     "SELECT id, kind, context FROM alerts WHERE kind != 'sistema' AND json_extract(context, '$.event') IS NOT NULL " +
       "ORDER BY id DESC LIMIT 1",
@@ -164,8 +188,18 @@ export async function resendLastAlert(
     cfg.levels,
   );
   const withButtons = ev.kind !== "sazonal" && ev.kind !== "epoca_fim";
-  await new TelegramApi(env.TELEGRAM_BOT_TOKEN, deps.fetch).sendMessage(env.TELEGRAM_CHAT_ID, text, {
-    replyMarkup: withButtons ? alertButtons(row.id) : undefined,
-  });
+  const api = new TelegramApi(env.TELEGRAM_BOT_TOKEN, deps.fetch);
+  const buttons = withButtons ? alertButtons(row.id) : undefined;
+  const msg = await api.sendMessage(env.TELEGRAM_CHAT_ID, text, { replyMarkup: buttons });
+  if (ev.kind === "epoca_inicio" || ev.kind === "epoca_nivel" || ev.kind === "disparada") {
+    const a = await analyze(env, deps, {
+      kind: ev.kind,
+      level: "level" in ev ? ev.level : null,
+      signal,
+      alertId: row.id,
+    });
+    if (a) await api.editMessageText(env.TELEGRAM_CHAT_ID, msg.message_id, text + commentBlock(a), buttons);
+    return { id: row.id, kind: row.kind, ai: Boolean(a) };
+  }
   return { id: row.id, kind: row.kind };
 }
